@@ -25,13 +25,13 @@ export async function handleStart(ctx) {
   const unjoinedChannels = await getUnjoinedChannels(ctx, user.id);
 
   // Agar sabhi channels joined hain (ya koi mandatory channel nahi hai):
-  // Toh sidha Welcome name aur INLINE BUTTONS chat ke andar bahar dikhein!
+  // Toh sidha Welcome name aur CHAT KE BAHAR wale buttons (ek line me 2) aayein!
   if (unjoinedChannels.length === 0) {
     firestoreService.setUserVerified(user.id, true).catch(() => {});
-    const inlineKb = await getMainInlineKeyboard(user.id);
+    const bottomKb = await getDoraemonBottomKeyboard(user.id);
     const welcomeText = formatMessage(settings.welcomeMessage || '👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*', user);
     return safeReply(ctx, welcomeText, {
-      reply_markup: inlineKb
+      reply_markup: bottomKb
     });
   }
 

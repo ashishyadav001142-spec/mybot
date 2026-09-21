@@ -68,7 +68,7 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
   // If all channels are joined:
   if (unjoinedChannels.length === 0) {
     await firestoreService.setUserVerified(userId, true);
-    const inlineKb = await getMainInlineKeyboard(userId);
+    const bottomKb = await getDoraemonBottomKeyboard(userId);
 
     // Clean up: Delete the old join prompt message completely from chat
     try {
@@ -86,7 +86,7 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
     const verifiedText = formatMessage(settings.verifiedMessage || settings.welcomeMessage || '👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*', ctx.from);
 
     return safeReply(ctx, verifiedText, {
-      reply_markup: inlineKb
+      reply_markup: bottomKb
     });
   }
 

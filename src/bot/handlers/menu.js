@@ -13,31 +13,27 @@ import { formatMessage, safeReply, safeEditMessageText, toSmallCaps } from '../.
 export async function getDoraemonBottomKeyboard(userId) {
   const kb = new Keyboard();
 
-  // 1. Big Center Restart Button (Full Row)
-  kb.text('🔄 ʀᴇsᴛᴀʀᴛ').row();
-
-  // 2. Fetch enabled TOP-LEVEL buttons (ignore sub-buttons)
+  // 1. Gather all buttons: Restart, dynamic buttons, Refresh, and Admin (if owner)
   const buttons = firestoreService.getMainButtons 
     ? await firestoreService.getMainButtons()
     : (await firestoreService.getButtons()).filter(b => b.enabled !== false && (!b.url || !b.url.startsWith('parent:')));
 
-  let count = 0;
-  for (const btn of buttons) {
-    kb.text(toSmallCaps(btn.name));
-    count++;
-    if (count % 2 === 0) {
+  const allItems = [
+    '🔄 ʀᴇsᴛᴀʀᴛ',
+    ...buttons.map(b => toSmallCaps(b.name)),
+    '🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ'
+  ];
+
+  if (isOwner(userId)) {
+    allItems.push('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ');
+  }
+
+  // 2. Lay out strictly 2 buttons per line ("ek line me do")
+  for (let i = 0; i < allItems.length; i++) {
+    kb.text(allItems[i]);
+    if (i % 2 === 1 && i < allItems.length - 1) {
       kb.row();
     }
-  }
-
-  if (count % 2 !== 0) {
-    kb.row();
-  }
-
-  // 3. Bottom Control Row
-  kb.text('🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ');
-  if (isOwner(userId)) {
-    kb.text('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ');
   }
 
   return kb.resized().placeholder('⚡ sᴇʟᴇᴄᴛ ᴀɴ ᴏᴘᴛɪᴏɴ...');
@@ -49,32 +45,26 @@ export async function getDoraemonBottomKeyboard(userId) {
 export async function getMainInlineKeyboard(userId) {
   const keyboard = new InlineKeyboard();
 
-  // 1. Restart Button (Full Row)
-  keyboard.text('🔄 ʀᴇsᴛᴀʀᴛ', 'flow:restart').row();
-
-  // 2. Fetch enabled TOP-LEVEL buttons (e.g. BGMI)
   const buttons = firestoreService.getMainButtons 
     ? await firestoreService.getMainButtons()
     : (await firestoreService.getButtons()).filter(b => b.enabled !== false && (!b.url || !b.url.startsWith('parent:')));
 
-  let count = 0;
-  for (const btn of buttons) {
-    keyboard.text(toSmallCaps(btn.name), `btn:action:${btn.id}`);
-    count++;
-    if (count % 2 === 0) {
+  const allItems = [
+    { text: '🔄 ʀᴇsᴛᴀʀᴛ', data: 'flow:restart' },
+    ...buttons.map(b => ({ text: toSmallCaps(b.name), data: `btn:action:${b.id}` })),
+    { text: '🔄 ʀᴇғʀᴇsʜ', data: 'flow:menu' }
+  ];
+
+  if (isOwner(userId)) {
+    allItems.push({ text: '🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ', data: 'admin:panel' });
+  }
+
+  // Strictly 2 buttons per line ("ek line me do")
+  for (let i = 0; i < allItems.length; i++) {
+    keyboard.text(allItems[i].text, allItems[i].data);
+    if (i % 2 === 1 && i < allItems.length - 1) {
       keyboard.row();
     }
-  }
-
-  if (count % 2 !== 0) {
-    keyboard.row();
-  }
-
-  // 3. Control Row: Refresh & Admin panel
-  if (isOwner(userId)) {
-    keyboard.text('🔄 ʀᴇғʀᴇsʜ', 'flow:menu').text('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ', 'admin:panel').row();
-  } else {
-    keyboard.text('🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ', 'flow:menu').row();
   }
 
   return keyboard;
@@ -124,11 +114,17 @@ export async function handleButtonExecution(ctx, button) {
     : (await firestoreService.getButtons()).filter(b => b.enabled !== false && b.url === `parent:${button.id}`);
 
   if (subButtons.length > 0) {
-    // Render interactive Sub-menu with inline buttons
+    // Render interactive Sub-menu with inline buttons (2 per line)
     const keyboard = new InlineKeyboard();
-    subButtons.forEach(sub => {
-      keyboard.text(toSmallCaps(sub.name), `subbtn:${sub.id}`).row();
-    });
+    for (let i = 0; i < subButtons.length; i++) {
+      keyboard.text(toSmallCaps(subButtons[i].name), `subbtn:${subButtons[i].id}`);
+      if (i % 2 === 1) {
+        keyboard.row();
+      }
+    }
+    if (subButtons.length % 2 !== 0) {
+      keyboard.row();
+    }
     keyboard.text('🔙 ʙᴀᴄᴋ ᴛᴏ ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
 
     const promptText = formatMessage(
@@ -264,9 +260,15 @@ export async function handleSubButtonClick(ctx) {
 
   if (childButtons.length > 0) {
     const keyboard = new InlineKeyboard();
-    childButtons.forEach(child => {
-      keyboard.text(toSmallCaps(child.name), `subbtn:${child.id}`).row();
-    });
+    for (let i = 0; i < childButtons.length; i++) {
+      keyboard.text(toSmallCaps(childButtons[i].name), `subbtn:${childButtons[i].id}`);
+      if (i % 2 === 1) {
+        keyboard.row();
+      }
+    }
+    if (childButtons.length % 2 !== 0) {
+      keyboard.row();
+    }
     if (parentBtn) {
       keyboard.text(`🔙 ʙᴀᴄᴋ ᴛᴏ ${toSmallCaps(parentBtn.name)}`, `parent_view:${parentId}`).row();
     }
@@ -276,6 +278,14 @@ export async function handleSubButtonClick(ctx) {
       subBtn.message || `📱 *${toSmallCaps(subBtn.name)}*\n\n_ᴘʟᴇᴀsᴇ sᴇʟᴇᴄᴛ ᴀ ғɪʟᴇ/ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ:_`,
       ctx.from
     );
+
+    if (ctx.callbackQuery) {
+      try {
+        return await safeEditMessageText(ctx, promptText, {
+          reply_markup: keyboard
+        });
+      } catch {}
+    }
 
     return safeReply(ctx, promptText, {
       reply_markup: keyboard
