@@ -44,7 +44,7 @@ app.get('/api/set-webhook', async (req, res) => {
   const webhookUrl = `${protocol}://${host}/api/webhook`;
 
   try {
-    await bot.api.setWebhook(webhookUrl);
+    await bot.api.setWebhook(webhookUrl, { drop_pending_updates: true });
     const info = await bot.api.getWebhookInfo();
     res.json({
       success: true,

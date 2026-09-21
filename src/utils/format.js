@@ -81,9 +81,15 @@ export async function safeEditMessageText(ctx, text, options = {}) {
         return await ctx.editMessageText(text, { ...options, parse_mode: undefined });
       } catch (e) {
         if (e.description && e.description.includes('message is not modified')) return;
-        throw e;
       }
     }
-    throw err;
+    // Fallback: If editing fails (message deleted/old/unsupported), gracefully reply
+    try {
+      return await ctx.reply(text, { parse_mode: 'Markdown', ...options });
+    } catch {
+      try {
+        return await ctx.reply(text, { ...options, parse_mode: undefined });
+      } catch {}
+    }
   }
 }

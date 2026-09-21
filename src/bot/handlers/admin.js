@@ -527,8 +527,6 @@ export async function handleAdminCallback(ctx) {
 
     if (!parent) return showFilesManager(ctx);
 
-    await ctx.answerCallbackQuery();
-
     // Check if this button has Apps (sub-buttons)
     const subApps = buttons.filter(b => b.url === `parent:${parentId}`);
 
@@ -547,6 +545,9 @@ export async function handleAdminCallback(ctx) {
         `Ye file *${parent.name}* ke andar konse App me add karni hai?\n` +
         `Niche se App chuniye:`;
 
+      if (ctx.callbackQuery) {
+        return safeEditMessageText(ctx, promptText, { reply_markup: keyboard });
+      }
       return safeReply(ctx, promptText, { reply_markup: keyboard });
     } else {
       // No Apps yet inside this button! Offer to create an App or add directly
@@ -560,6 +561,9 @@ export async function handleAdminCallback(ctx) {
         `⚠️ *Is button me abhi koi App nahi hai!*\n` +
         `Aap pehle App banana chahte hain ya direct file add karni hai?`;
 
+      if (ctx.callbackQuery) {
+        return safeEditMessageText(ctx, promptText, { reply_markup: keyboard });
+      }
       return safeReply(ctx, promptText, { reply_markup: keyboard });
     }
   }
@@ -567,7 +571,6 @@ export async function handleAdminCallback(ctx) {
   if (data.startsWith('admin:file_sel_app:')) {
     const parts = data.replace('admin:file_sel_app:', '').split(':');
     const [parentId, appId] = parts;
-    await ctx.answerCallbackQuery();
 
     const buttons = await firestoreService.getButtons();
     const parent = buttons.find(b => b.id === parentId);
@@ -586,15 +589,18 @@ export async function handleAdminCallback(ctx) {
       targetAppName: appDisplayName
     });
 
-    return safeReply(
-      ctx,
+    const promptText = 
       `📁 *Button:* *${parentDisplayName}*\n` +
       `📱 *App:* *${appDisplayName}*\n\n` +
       `📝 *Step 3: File ka Display Name bhejiye*\n` +
       `User ko App ke andar jo naam dikhna chahiye wo likhkar bhejiye:\n` +
       `(e.g. \`OBB 64-Bit File\` ya \`VIP Config\` ya \`Tutorial Video\`)\n\n` +
-      `_Naam likhkar send karein, ya /skip bhejein original file name ke liye._`
-    );
+      `_Naam likhkar send karein, ya /skip bhejein original file name ke liye._`;
+
+    if (ctx.callbackQuery) {
+      return safeEditMessageText(ctx, promptText);
+    }
+    return safeReply(ctx, promptText);
   }
 
   if (data.startsWith('admin:file_info:')) {
@@ -603,7 +609,6 @@ export async function handleAdminCallback(ctx) {
     const f = files.find(file => file.id === fileId);
     if (!f) return showFilesManager(ctx);
 
-    await ctx.answerCallbackQuery();
     const sizeMb = f.fileSize ? (f.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown';
     const text = 
       `📄 *FILE DETAILS*\n\n` +
@@ -646,7 +651,6 @@ export async function handleAdminCallback(ctx) {
 
   if (data.startsWith('admin:attach_as_sub:')) {
     const fileId = data.replace('admin:attach_as_sub:', '');
-    await ctx.answerCallbackQuery();
 
     const buttons = await firestoreService.getButtons();
     const mainButtons = buttons.filter(b => !b.url || !b.url.startsWith('parent:'));
@@ -669,7 +673,6 @@ export async function handleAdminCallback(ctx) {
   if (data.startsWith('admin:attach_to_parent:')) {
     const parts = data.replace('admin:attach_to_parent:', '').split(':');
     const [fileRecordId, parentId] = parts;
-    await ctx.answerCallbackQuery();
 
     const files = await firestoreService.getFiles();
     const file = files.find(f => f.id === fileRecordId);
@@ -698,23 +701,19 @@ export async function handleAdminCallback(ctx) {
   }
 
   if (data === 'admin:channels') {
-    await ctx.answerCallbackQuery();
     return showChannelsManager(ctx);
   }
 
   if (data === 'admin:files') {
-    await ctx.answerCallbackQuery();
     return showFilesManager(ctx);
   }
 
   if (data === 'admin:settings') {
-    await ctx.answerCallbackQuery();
     return showSettingsManager(ctx);
   }
 
   // Edit bot messages live
   if (data === 'admin:edit_msg:welcome') {
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_WELCOME_MSG' });
     return safeReply(
       ctx,
@@ -729,7 +728,6 @@ export async function handleAdminCallback(ctx) {
   }
 
   if (data === 'admin:edit_msg:join') {
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_JOIN_MSG' });
     return safeReply(
       ctx,
@@ -743,7 +741,6 @@ export async function handleAdminCallback(ctx) {
   }
 
   if (data === 'admin:edit_msg:verified') {
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_VERIFIED_MSG' });
     return safeReply(
       ctx,
@@ -769,7 +766,6 @@ export async function handleAdminCallback(ctx) {
   // Edit dynamic button specifics
   if (data.startsWith('admin:btn_edit_msg:')) {
     const id = data.replace('admin:btn_edit_msg:', '');
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_BTN_MSG', buttonId: id });
     return safeReply(
       ctx,
@@ -782,7 +778,6 @@ export async function handleAdminCallback(ctx) {
 
   if (data.startsWith('admin:btn_edit_name:')) {
     const id = data.replace('admin:btn_edit_name:', '');
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_BTN_NAME', buttonId: id });
     return safeReply(
       ctx,
@@ -794,7 +789,6 @@ export async function handleAdminCallback(ctx) {
 
   if (data.startsWith('admin:btn_edit_val:')) {
     const id = data.replace('admin:btn_edit_val:', '');
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_BTN_VALUE', buttonId: id });
     return safeReply(
       ctx,
@@ -929,7 +923,6 @@ export async function handleAdminCallback(ctx) {
   }
 
   if (data === 'admin:chan_add') {
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_CHANNEL_INFO' });
     return safeReply(
       ctx,
@@ -945,12 +938,11 @@ export async function handleAdminCallback(ctx) {
     const settings = await firestoreService.getBotSettings();
     const newStatus = !settings.maintenanceMode;
     await firestoreService.updateBotSettings({ maintenanceMode: newStatus });
-    await ctx.answerCallbackQuery({ text: `Maintenance mode: ${newStatus ? 'ENABLED' : 'DISABLED'}` });
+    await ctx.answerCallbackQuery({ text: `Maintenance mode: ${newStatus ? 'ENABLED' : 'DISABLED'}` }).catch(() => {});
     return showSettingsManager(ctx);
   }
 
   if (data === 'admin:broadcast') {
-    await ctx.answerCallbackQuery();
     adminSessionState.set(userId, { state: 'AWAITING_BROADCAST_MESSAGE' });
     return safeReply(
       ctx,
