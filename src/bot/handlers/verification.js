@@ -1,7 +1,7 @@
 import { InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
 import { getDoraemonBottomKeyboard } from './menu.js';
-import { formatMessage, safeReply, safeEditMessageText } from '../../utils/format.js';
+import { formatMessage, safeReply, safeEditMessageText, toSmallCaps } from '../../utils/format.js';
 
 /**
  * Checks which enabled channels the user has NOT yet joined.
@@ -83,7 +83,7 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
       }
     } catch {}
 
-    const verifiedText = formatMessage(settings.verifiedMessage || settings.welcomeMessage || '👋 *Welcome, {name}!*', ctx.from);
+    const verifiedText = formatMessage(settings.verifiedMessage || settings.welcomeMessage || '👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*', ctx.from);
 
     return safeReply(ctx, verifiedText, {
       reply_markup: bottomKb
@@ -94,11 +94,11 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
   const keyboard = new InlineKeyboard();
   unjoinedChannels.forEach((chan, idx) => {
     const link = chan.inviteUrl || (chan.username ? `https://t.me/${chan.username.replace('@', '')}` : '#');
-    keyboard.url(`📢 𝗝𝗢𝗜𝗡 ${chan.title || `Channel ${idx + 1}`}`, link).row();
+    keyboard.url(`📢 ᴊᴏɪɴ ${toSmallCaps(chan.title || `ᴄʜᴀɴɴᴇʟ ${idx + 1}`)}`, link).row();
   });
-  keyboard.text('🔄 𝗖𝗛𝗘𝗖𝗞 𝗝𝗢𝗜𝗡', 'flow:check_join');
+  keyboard.text('🔄 ᴄʜᴇᴄᴋ ᴊᴏɪɴ', 'flow:check_join');
 
-  const joinText = formatMessage(settings.joinRequiredMessage || '🔔 *𝗝𝗼𝗶𝗻 𝗢𝘂𝗿 𝗢𝗳𝗳𝗶𝗰𝗶𝗮𝗹 𝗖𝗵𝗮𝗻𝗻𝗲𝗹 𝗧𝗼 𝗨𝗻𝗹𝗼𝗰𝗸:*', ctx.from);
+  const joinText = formatMessage(settings.joinRequiredMessage || '🔔 *ᴊᴏɪɴ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟs ᴛᴏ ᴜɴʟᴏᴄᴋ:*', ctx.from);
 
   if (ctx.callbackQuery) {
     await ctx.answerCallbackQuery({

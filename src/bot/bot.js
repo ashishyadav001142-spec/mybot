@@ -20,6 +20,7 @@ import {
   handleAdminCallback 
 } from './handlers/admin.js';
 import { handleMediaUpload, handleAdminTextSession } from './handlers/fileUpload.js';
+import { toSmallCaps } from '../utils/format.js';
 
 let bot = null;
 
@@ -47,10 +48,10 @@ export function initBot() {
 
   // Set Telegram Native Command Menu & Chat Menu Button
   bot.api.setMyCommands([
-    { command: 'start', description: '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨' },
-    { command: 'restart', description: '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧' },
-    { command: 'menu', description: '🎒 𝟰𝗗 𝗣𝗼𝗰𝗸𝗲𝘁 𝗚𝗮𝗱𝗴𝗲𝘁 𝗠𝗲𝗻𝗨' },
-    { command: 'admin', description: '🛡️ 𝗢𝘄𝗻𝗲𝗿 𝗔𝗱𝗺𝗶𝗻 𝗣𝗮𝗻𝗲𝗹' }
+    { command: 'start', description: '🚀 sᴛᴀʀᴛ / ᴍᴇɴᴜ' },
+    { command: 'restart', description: '🔄 ʀᴇsᴛᴀʀᴛ' },
+    { command: 'menu', description: '🎒 ɢᴀᴅɢᴇᴛ ᴍᴇɴᴜ' },
+    { command: 'admin', description: '🛡️ ᴏᴡɴᴇʀ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ' }
   ]).catch(err => console.warn('Could not register bot commands:', err.message));
 
   bot.api.setChatMenuButton({
@@ -116,9 +117,9 @@ export function initBot() {
 
     // 1. Big Restart / Start Button in Center
     const isRestartOrStart = [
-      '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧', '🔄 RESTART', '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧 💀', '🚀 𝗥𝗘𝗦𝗧𝗔𝗥𝗧', '🚀 RESTART', 'Restart', 'restart', 'RESTART', '/restart',
-      '🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀', '🚀 START DORAEMON PANEL 💀', '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨', '🚀 START / MENU', '🚀 START', '🚀 𝗨𝗡𝗟𝗢𝗖𝗞 𝟰𝗗 𝗣𝗢𝗖𝗞𝗘𝗧', 'Start', 'start', 'START', '/start'
-    ].includes(text) || text.toLowerCase() === 'restart' || text.toLowerCase() === 'start';
+      '🔄 ʀᴇsᴛᴀʀᴛ', '🔄 RESTART', '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧', '🔄 ʀᴇsᴛᴀʀᴛ 💀', '🚀 ʀᴇsᴛᴀʀᴛ', '🚀 RESTART', 'Restart', 'restart', 'RESTART', '/restart',
+      '🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀', '🚀 START DORAEMON PANEL 💀', '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨', '🚀 START / MENU', '🚀 START', 'Start', 'start', 'START', '/start'
+    ].includes(text) || text.includes('ʀᴇsᴛᴀʀᴛ') || text.toLowerCase() === 'restart' || text.toLowerCase() === 'start';
 
     if (isRestartOrStart) {
       await ctx.replyWithChatAction('typing').catch(() => {});
@@ -126,13 +127,17 @@ export function initBot() {
     }
 
     // 2. Refresh Menu
-    if (['🔄 𝗥𝗘𝗙𝗥𝗘𝗦𝗛 𝗠𝗘𝗡𝗨', '🔄 REFRESH MENU', '🔄 𝗥𝗘𝗙𝗥𝗘𝗦𝗛', '🔄 REFRESH'].includes(text)) {
+    if ([
+      '🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ', '🔄 REFRESH MENU', '🔄 𝗥𝗘𝗙𝗥𝗘𝗦𝗛 𝗠𝗘𝗡𝗨', '🔄 ʀᴇғʀᴇsʜ', '🔄 REFRESH', '🔄 𝗥𝗘𝗙𝗥𝗘𝗦𝗛'
+    ].includes(text) || text.includes('ʀᴇғʀᴇsʜ')) {
       await ctx.replyWithChatAction('typing').catch(() => {});
       return showMainMenu(ctx);
     }
 
     // 3. Admin Panel
-    if (['🛡️ 𝗔𝗗𝗠𝗜𝗡 𝗣𝗔𝗡𝗘𝗟', '🛡️ ADMIN PANEL', '/admin'].includes(text)) {
+    if ([
+      '🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ', '🛡️ ADMIN PANEL', '🛡️ 𝗔𝗗𝗠𝗜𝗡 𝗣𝗔𝗡𝗘𝗟', '/admin'
+    ].includes(text) || text.includes('ᴀᴅᴍɪɴ')) {
       if (isOwner(userId)) {
         return openAdminPanel(ctx);
       }
@@ -140,7 +145,18 @@ export function initBot() {
 
     // 4. Dynamic buttons (APKs, VIP Keys, Links from bottom keyboard outside chat)
     const buttons = await firestoreService.getButtons();
-    const matchedButton = buttons.find(b => b.name?.trim() === text || b.name?.toLowerCase() === text.toLowerCase());
+    const matchedButton = buttons.find(b => {
+      const bName = (b.name || '').trim();
+      const bSmall = toSmallCaps(bName);
+      const tSmall = toSmallCaps(text);
+      return (
+        bName === text ||
+        bName.toLowerCase() === text.toLowerCase() ||
+        bSmall === tSmall ||
+        bSmall === text ||
+        bName === tSmall
+      );
+    });
     if (matchedButton) {
       return handleButtonExecution(ctx, matchedButton);
     }

@@ -2,7 +2,7 @@ import { InlineKeyboard } from 'grammy';
 import { isOwner } from '../middlewares/auth.js';
 import { dbService as firestoreService } from '../../services/db.js';
 import { adminSessionState, openAdminPanel, showMessagesManager, showButtonDetail, showButtonsManager } from './admin.js';
-import { safeReply, formatMessage, DISCLAIMER_TEXT } from '../../utils/format.js';
+import { safeReply, formatMessage, DISCLAIMER_TEXT, toSmallCaps } from '../../utils/format.js';
 
 /**
  * Handles incoming Telegram media (Documents, APKs, Videos, Photos, Audio) from Owner
@@ -89,7 +89,7 @@ export async function handleMediaUpload(ctx) {
       const { parentId, parentName, itemName } = session;
       adminSessionState.delete(userId);
 
-      const finalName = itemName || fileName;
+      const finalName = toSmallCaps(itemName || fileName);
 
       // Save file record
       const fileRecord = await firestoreService.addFile({
@@ -345,7 +345,7 @@ export async function handleAdminTextSession(ctx) {
   if (session.state === 'AWAITING_BUTTON_NAME_ONLY' || session.state === 'AWAITING_BUTTON_INFO') {
     adminSessionState.delete(userId);
 
-    let buttonName = text;
+    let buttonName = toSmallCaps(text.trim());
     let type = 'TEXT';
     let message = `📂 *${buttonName}*\n\n🎒 Niche se file ya option select karein:`;
     let telegramFileId = '';
@@ -353,7 +353,7 @@ export async function handleAdminTextSession(ctx) {
 
     if (text.includes('|')) {
       const parts = text.split('|').map(p => p.trim());
-      buttonName = parts[0];
+      buttonName = toSmallCaps(parts[0]);
       if (parts[1]) type = parts[1].toUpperCase();
       if (parts[2]) {
         if (type === 'FILE') telegramFileId = parts[2];
@@ -384,7 +384,7 @@ export async function handleAdminTextSession(ctx) {
 
   // 9. Handle File Display Name in Step-by-Step Add File flow
   if (session.state === 'AWAITING_FILE_ITEM_NAME') {
-    session.itemName = text;
+    session.itemName = toSmallCaps(text.trim());
     session.state = 'AWAITING_FILE_MEDIA_UPLOAD';
     adminSessionState.set(userId, session);
 
@@ -403,7 +403,7 @@ export async function handleAdminTextSession(ctx) {
     const { parentId, parentName, telegramFileId, fileName } = session;
     adminSessionState.delete(userId);
 
-    const displayName = text === '/skip' ? fileName : text;
+    const displayName = text === '/skip' ? toSmallCaps(fileName) : toSmallCaps(text.trim());
     const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
 
     await firestoreService.addButton({

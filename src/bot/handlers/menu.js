@@ -2,7 +2,7 @@ import { Keyboard, InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
 import { isOwner } from '../middlewares/auth.js';
 import { openAdminPanel } from './admin.js';
-import { formatMessage, safeReply } from '../../utils/format.js';
+import { formatMessage, safeReply, toSmallCaps } from '../../utils/format.js';
 
 /**
  * Builds the stylish bottom ReplyKeyboard (Chat ke bahar, screen ke bottom me)
@@ -14,7 +14,7 @@ export async function getDoraemonBottomKeyboard(userId) {
   const kb = new Keyboard();
 
   // 1. Big Center Restart Button (Full Row)
-  kb.text('🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧').row();
+  kb.text('🔄 ʀᴇsᴛᴀʀᴛ').row();
 
   // 2. Fetch enabled TOP-LEVEL buttons (ignore sub-buttons)
   const buttons = firestoreService.getMainButtons 
@@ -23,7 +23,7 @@ export async function getDoraemonBottomKeyboard(userId) {
 
   let count = 0;
   for (const btn of buttons) {
-    kb.text(btn.name);
+    kb.text(toSmallCaps(btn.name));
     count++;
     if (count % 2 === 0) {
       kb.row();
@@ -35,9 +35,9 @@ export async function getDoraemonBottomKeyboard(userId) {
   }
 
   // 3. Bottom Control Row
-  kb.text('🔄 𝗥𝗘𝗙𝗥𝗘𝗦𝗛 𝗠𝗘𝗡𝗨');
+  kb.text('🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ');
   if (isOwner(userId)) {
-    kb.text('🛡️ 𝗔𝗗𝗠𝗜𝗡 𝗣𝗔𝗡𝗘𝗟');
+    kb.text('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ');
   }
 
   return kb.resized().persistent();
@@ -82,12 +82,12 @@ export async function handleButtonExecution(ctx, button) {
     // Render interactive Sub-menu with inline buttons
     const keyboard = new InlineKeyboard();
     subButtons.forEach(sub => {
-      keyboard.text(sub.name, `subbtn:${sub.id}`).row();
+      keyboard.text(toSmallCaps(sub.name), `subbtn:${sub.id}`).row();
     });
-    keyboard.text('🔙 𝗕𝗮𝗰𝗸 𝘁𝗼 𝗠𝗮𝗶𝗻 𝗠𝗲𝗻𝘂', 'flow:menu');
+    keyboard.text('🔙 ʙᴀᴄᴋ ᴛᴏ ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
 
     const promptText = formatMessage(
-      button.message || `📂 *${button.name}*\n\n_Please select an option below:_`,
+      button.message || `📂 *${toSmallCaps(button.name)}*\n\n_ᴘʟᴇᴀsᴇ sᴇʟᴇᴄᴛ ᴀɴ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ:_`,
       ctx.from
     );
 
@@ -200,9 +200,9 @@ export async function handleSubButtonClick(ctx) {
 
   const backKeyboard = new InlineKeyboard();
   if (parentBtn) {
-    backKeyboard.text(`🔙 𝗕𝗮𝗰𝗸 𝘁𝗼 ${parentBtn.name}`, `parent_view:${parentId}`).row();
+    backKeyboard.text(`🔙 ʙᴀᴄᴋ ᴛᴏ ${toSmallCaps(parentBtn.name)}`, `parent_view:${parentId}`).row();
   }
-  backKeyboard.text('🏠 𝗠𝗮𝗶𝗻 𝗠𝗲𝗻𝘂', 'flow:menu');
+  backKeyboard.text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
 
   if (subBtn.type === 'FILE') {
     if (!subBtn.telegramFileId || subBtn.telegramFileId.includes('SAMPLE')) {

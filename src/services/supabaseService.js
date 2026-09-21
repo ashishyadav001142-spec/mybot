@@ -29,9 +29,9 @@ class MemoryCache {
 }
 
 const DEFAULT_SETTINGS = {
-  welcomeMessage: "👋 *Welcome, {name}!*",
-  joinRequiredMessage: "🔔 *𝗝𝗼𝗶𝗻 𝗢𝘂𝗿 𝗢𝗳𝗳𝗶𝗰𝗶𝗮𝗹 𝗖𝗵𝗮𝗻𝗻𝗲𝗹 𝗧𝗼 𝗨𝗻𝗹𝗼𝗰𝗸:*",
-  verifiedMessage: "👋 *Welcome, {name}!*",
+  welcomeMessage: "👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*",
+  joinRequiredMessage: "🔔 *ᴊᴏɪɴ ᴏᴜʀ ᴏғғɪᴄɪᴀʟ ᴄʜᴀɴɴᴇʟs ᴛᴏ ᴜɴʟᴏᴄᴋ:*",
+  verifiedMessage: "👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*",
   maintenanceMode: false,
   ownerTelegramId: "8833095685"
 };

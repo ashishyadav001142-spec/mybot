@@ -2,7 +2,7 @@ import { InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
 import { isOwner } from '../middlewares/auth.js';
 import { OWNER_TELEGRAM_ID } from '../../config/env.js';
-import { safeReply, safeEditMessageText, formatMessage } from '../../utils/format.js';
+import { safeReply, safeEditMessageText, formatMessage, toSmallCaps } from '../../utils/format.js';
 
 // In-memory session for admin pending state
 export const adminSessionState = new Map();
@@ -38,14 +38,14 @@ export async function openAdminPanel(ctx) {
     `_Select an administration module below:_`;
 
   const keyboard = new InlineKeyboard()
-    .text('🔘 𝗗𝘆𝗻𝗮𝗺𝗶𝗰 𝗕𝘂𝘁𝘁𝗼𝗻𝘀', 'admin:buttons')
-    .text('📢 𝗥𝗲𝗾𝘂𝗶𝗿𝗲𝗱 𝗖𝗵𝗮𝗻𝗻𝗲𝗹𝘀', 'admin:channels').row()
-    .text('📝 𝗘𝗱𝗶𝘁 𝗔𝗹𝗹 𝗠𝗲𝘀𝘀𝗮𝗴𝗲𝘀', 'admin:messages')
-    .text('📁 𝗙𝗶𝗹𝗲𝘀 & 𝗩𝗶𝗱𝗲𝗼𝘀', 'admin:files').row()
-    .text('⚙️ 𝗕𝗼𝘁 𝗦𝗲𝘁𝘁𝗶𝗻𝗴𝘀', 'admin:settings')
-    .text('📣 𝗕𝗿𝗼𝗮𝗱𝗰𝗮𝘀𝘁 𝗠𝘀𝗴', 'admin:broadcast').row()
-    .text('🔄 𝗥𝗲𝗳𝗿𝗲𝘀𝗵 𝗦𝘁𝗮𝘁𝘀', 'admin:panel')
-    .text('🔙 𝗠𝗮𝗶𝗻 𝗠𝗲𝗻𝘂', 'flow:menu');
+    .text('🔘 ᴅʏɴᴀᴍɪᴄ ʙᴜᴛᴛᴏɴs', 'admin:buttons')
+    .text('📢 ʀᴇǫᴜɪʀᴇᴅ ᴄʜᴀɴɴᴇʟs', 'admin:channels').row()
+    .text('📝 ᴇᴅɪᴛ ᴍᴇssᴀɢᴇs', 'admin:messages')
+    .text('📁 ғɪʟᴇs & ᴠɪᴅᴇᴏs', 'admin:files').row()
+    .text('⚙️ ʙᴏᴛ sᴇᴛᴛɪɴɢs', 'admin:settings')
+    .text('📣 ʙʀᴏᴀᴅᴄᴀsᴛ ᴍsɢ', 'admin:broadcast').row()
+    .text('🔄 ʀᴇғʀᴇsʜ sᴛᴀᴛs', 'admin:panel')
+    .text('🔙 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
 
   if (ctx.callbackQuery) {
     await safeEditMessageText(ctx, text, { reply_markup: keyboard });
@@ -124,15 +124,15 @@ export async function showButtonsManager(ctx) {
   mainButtons.forEach(b => {
     const toggleText = b.enabled !== false ? '⏸️' : '▶️';
     keyboard
-      .text(`⚙️ ${b.name}`, `admin:btn_view:${b.id}`)
+      .text(`⚙️ ${toSmallCaps(b.name)}`, `admin:btn_view:${b.id}`)
       .text(toggleText, `admin:btn_toggle:${b.id}`)
       .text('🗑️', `admin:btn_del:${b.id}`)
       .row();
   });
 
   keyboard
-    .text('➕ Add New Main Button', 'admin:btn_add').row()
-    .text('🔙 Back to Dashboard', 'admin:panel');
+    .text('➕ ᴀᴅᴅ ɴᴇᴡ ʙᴜᴛᴛᴏɴ', 'admin:btn_add').row()
+    .text('🔙 ʙᴀᴄᴋ ᴛᴏ ᴅᴀsʜʙᴏᴀʀᴅ', 'admin:panel');
 
   if (ctx.callbackQuery) {
     await safeEditMessageText(ctx, text, { reply_markup: keyboard });
@@ -315,20 +315,20 @@ export async function showFilesManager(ctx) {
   const keyboard = new InlineKeyboard();
 
   // Top action: Add File to a Button
-  keyboard.text('➕ 𝗔𝗱𝗱 𝗙𝗶𝗹𝗲 𝘁𝗼 𝗕𝘂𝘁𝘁𝗼𝗻', 'admin:file_add_start').row();
+  keyboard.text('➕ ᴀᴅᴅ ғɪʟᴇ ᴛᴏ ʙᴜᴛᴛᴏɴ', 'admin:file_add_start').row();
 
   // Show delete button for each file
   files.slice(0, 8).forEach(f => {
     const displayName = f.name.length > 18 ? f.name.substring(0, 16) + '..' : f.name;
     keyboard
-      .text(`📄 ${displayName}`, `admin:file_info:${f.id}`)
-      .text('🗑️ Del', `admin:file_del:${f.id}`)
+      .text(`📄 ${toSmallCaps(displayName)}`, `admin:file_info:${f.id}`)
+      .text('🗑️ ᴅᴇʟ', `admin:file_del:${f.id}`)
       .row();
   });
 
   keyboard
-    .text('🔄 Refresh Files', 'admin:files')
-    .text('🔙 Back to Dashboard', 'admin:panel');
+    .text('🔄 ʀᴇғʀᴇsʜ ғɪʟᴇs', 'admin:files')
+    .text('🔙 ʙᴀᴄᴋ ᴛᴏ ᴅᴀsʜʙᴏᴀʀᴅ', 'admin:panel');
 
   if (ctx.callbackQuery) {
     await safeEditMessageText(ctx, text, { reply_markup: keyboard });
