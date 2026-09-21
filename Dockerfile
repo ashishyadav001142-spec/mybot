@@ -1,23 +1,13 @@
-# Production Dockerfile for Telegram Bot Backend
-FROM node:20-alpine
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy dependency definitions
-COPY package*.json ./
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install dependencies (production only)
-RUN npm ci --only=production
-
-# Copy source code
 COPY . .
 
-# Set environment
-ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=10000
+EXPOSE 10000
 
-# Expose port
-EXPOSE 5000
-
-# Start command
-CMD ["node", "src/server.js"]
+CMD ["python", "bot.py"]
