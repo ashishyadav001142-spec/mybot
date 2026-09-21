@@ -1,22 +1,32 @@
+export const DISCLAIMER_TEXT = "━━━━━━━━━━━━━━━━━━━━━\n⚠️ ᴛʜɪs ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴛʜɪs ᴘᴏsᴛ ᴅᴏᴇsɴ'ᴛ ᴘʀᴏᴍᴏᴛᴇ ᴀɴʏ ɪʟʟᴇɢᴀʟ ᴀᴄᴛɪᴠɪᴛʏ.";
+
 /**
  * Formats template strings with dynamic user variables.
+ * Automatically attaches the stylish disclaimer footer to user-facing messages.
  * Supported variables:
  * - {name}: First name or 'User'
  * - {first_name}: First name or 'User'
  * - {username}: Username (with @) or name
  * - {id}: User Telegram ID
  */
-export function formatMessage(template, user = {}) {
-  if (!template) return '';
+export function formatMessage(template, user = {}, withDisclaimer = true) {
+  if (!template) return withDisclaimer ? DISCLAIMER_TEXT : '';
   const name = user.first_name || user.firstName || 'User';
   const username = user.username ? `@${user.username}` : name;
   const id = user.id || user.telegramId || '';
 
-  return template
+  let formatted = template
     .replace(/{name}/gi, name)
     .replace(/{first_name}/gi, name)
     .replace(/{username}/gi, username)
     .replace(/{id}/gi, String(id));
+
+  // Auto-append stylish disclaimer if requested and not already present
+  if (withDisclaimer && !formatted.includes("ᴛʜɪs ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴛʜɪs ᴘᴏsᴛ")) {
+    formatted = `${formatted.trim()}\n\n${DISCLAIMER_TEXT}`;
+  }
+
+  return formatted;
 }
 
 /**

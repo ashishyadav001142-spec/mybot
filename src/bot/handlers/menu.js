@@ -259,7 +259,8 @@ export async function handleSubButtonClick(ctx) {
     });
   } else if (subBtn.type === 'LINK' || subBtn.type === 'CHANNEL') {
     const url = subBtn.telegramFileId || 'https://t.me';
-    await safeReply(ctx, `🔗 *${subBtn.name}*\n\n👉 [Click Here to Access](${url})`, {
+    const text = formatMessage(`🔗 *${subBtn.name}*\n\n👉 [Click Here to Access](${url})`, ctx.from);
+    await safeReply(ctx, text, {
       reply_markup: backKeyboard,
       disable_web_page_preview: true
     });
