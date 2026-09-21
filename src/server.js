@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { webhookCallback } from 'grammy';
 import { config, validateEnv } from './config/env.js';
 import { initBot } from './bot/bot.js';
 import { dbService as firestoreService } from './services/db.js';
@@ -14,6 +15,53 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Initialize Bot instance
+const bot = initBot();
+
+// Mount Telegram Webhook for Vercel Serverless & Production Webhook mode
+if (bot) {
+  app.use('/api/webhook', webhookCallback(bot, 'express'));
+  app.use('/telegram-webhook', webhookCallback(bot, 'express'));
+}
+
+// 1-Click Webhook Registration for Vercel
+app.get('/api/set-webhook', async (req, res) => {
+  if (!bot) {
+    return res.status(500).json({
+      success: false,
+      error: 'Bot is not initialized. Please ensure TELEGRAM_BOT_TOKEN is set in Vercel Environment Variables!'
+    });
+  }
+
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const webhookUrl = `${protocol}://${host}/api/webhook`;
+
+  try {
+    await bot.api.setWebhook(webhookUrl);
+    const info = await bot.api.getWebhookInfo();
+    res.json({
+      success: true,
+      message: '🎉 Webhook successfully registered with Telegram on Vercel!',
+      webhookUrl,
+      webhookInfo: info
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Check Webhook Status
+app.get('/api/webhook-info', async (req, res) => {
+  if (!bot) return res.status(500).json({ error: 'Bot not initialized' });
+  try {
+    const info = await bot.api.getWebhookInfo();
+    res.json({ success: true, info });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Verify Firebase Auth Token middleware for secure Android App REST calls
 async function verifyAdminAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -23,7 +71,6 @@ async function verifyAdminAuth(req, res, next) {
 
   const idToken = authHeader.split('Bearer ')[1];
   if (!isInitialized || !auth) {
-    // If running in development without Firebase keys
     return next();
   }
 
@@ -42,7 +89,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
     timestamp: new Date().toISOString(),
-    firebaseConnected: isInitialized,
+    environment: process.env.VERCEL ? 'vercel-serverless' : 'continuous',
     ownerTelegramId: config.ownerTelegramId
   });
 });
@@ -57,55 +104,21 @@ app.get('/api/stats', verifyAdminAuth, async (req, res) => {
   }
 });
 
-// Test Channel Permissions using Telegram Bot API
-app.post('/api/channels/test', verifyAdminAuth, async (req, res) => {
-  const { channelUsername } = req.body;
-  if (!channelUsername) {
-    return res.status(400).json({ error: 'channelUsername is required' });
-  }
-
-  const botInstance = (await import('./bot/bot.js')).bot;
-  if (!botInstance) {
-    return res.status(503).json({ error: 'Telegram Bot is not initialized on this server' });
-  }
-
-  try {
-    const chat = await botInstance.api.getChat(channelUsername);
-    const botMember = await botInstance.api.getChatMember(chat.id, (await botInstance.api.getMe()).id);
-
-    const isAdmin = ['creator', 'administrator'].includes(botMember.status);
-    res.json({
-      success: true,
-      data: {
-        chatId: chat.id,
-        title: chat.title,
-        username: chat.username,
-        botStatus: botMember.status,
-        canVerifyMembers: isAdmin
-      }
-    });
-  } catch (err) {
-    res.status(400).json({
-      success: false,
-      error: `Failed to inspect channel: ${err.message}`
-    });
-  }
-});
-
-// Start Express Server and Telegram Bot
+// Start Express Server (for Local PC and continuous hosts like Railway/VPS)
 async function startServer() {
-  validateEnv();
+  // If running in Vercel Serverless environment, skip port listening and polling
+  if (process.env.VERCEL) {
+    console.log('⚡ [Backend] Running in Vercel Serverless environment.');
+    return;
+  }
 
-  const bot = initBot();
+  validateEnv();
 
   if (bot) {
     if (config.webhookUrl) {
-      // Production Webhook Mode
       console.log(`🌐 [Bot] Setting up webhook on ${config.webhookUrl}...`);
-      await bot.api.setWebhook(`${config.webhookUrl}/telegram-webhook`);
-      app.use('/telegram-webhook', (await import('grammy')).webhookCallback(bot, 'express'));
+      await bot.api.setWebhook(`${config.webhookUrl}/api/webhook`);
     } else {
-      // Development Long Polling Mode
       console.log('🔄 [Bot] Starting long-polling mode...');
       bot.start({
         onStart: (botInfo) => {
@@ -136,3 +149,6 @@ async function startServer() {
 startServer().catch(err => {
   console.error('Fatal startup error:', err);
 });
+
+export { app, bot };
+export default app;
