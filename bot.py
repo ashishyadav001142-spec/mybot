@@ -953,11 +953,25 @@ if __name__ == '__main__':
         logging.warning(f"Could not set native bot commands: {e}")
 
     # Remove any existing webhook and flush pending updates
+    time.sleep(2)
     try:
         bot.delete_webhook(drop_pending_updates=True)
         print("🧹 Cleaned up old webhooks & dropped stale updates.")
     except Exception as e:
         logging.warning(f"Could not delete webhook: {e}")
+    time.sleep(1)
 
     print("🤖 Bot is live and listening for updates instantly!")
-    bot.infinity_polling(skip_pending=True)
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except telebot.apihelper.ApiTelegramException as e:
+            if "Conflict" in str(e) or getattr(e, 'error_code', 0) == 409:
+                logging.warning("⚠️ 409 Conflict detected (previous instance shutting down). Retrying in 5 seconds...")
+                time.sleep(5)
+            else:
+                logging.error(f"Telegram API Exception: {e}")
+                time.sleep(3)
+        except Exception as e:
+            logging.error(f"Unexpected polling error: {e}")
+            time.sleep(3)
