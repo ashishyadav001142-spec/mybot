@@ -6,15 +6,15 @@ import { formatMessage, safeReply } from '../../utils/format.js';
 
 /**
  * Builds the stylish bottom ReplyKeyboard (Chat ke bahar, screen ke bottom me)
- * - Row 1 (Center / Big): 🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀
+ * - Row 1 (Center / Big): 🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧
  * - Row 2+: Top-level main buttons from Supabase (Sub-buttons are filtered out)
  * - Last Row: Refresh & Admin panel
  */
 export async function getDoraemonBottomKeyboard(userId) {
   const kb = new Keyboard();
 
-  // 1. Big Center Start Button (Full Row)
-  kb.text('🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀').row();
+  // 1. Big Center Restart Button (Full Row)
+  kb.text('🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧').row();
 
   // 2. Fetch enabled TOP-LEVEL buttons (ignore sub-buttons)
   const buttons = firestoreService.getMainButtons 

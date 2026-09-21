@@ -47,8 +47,9 @@ export function initBot() {
 
   // Set Telegram Native Command Menu & Chat Menu Button
   bot.api.setMyCommands([
-    { command: 'start', description: '🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀' },
-    { command: 'menu', description: '🎒 𝟰𝗗 𝗣𝗼𝗰𝗸𝗲𝘁 𝗚𝗮𝗱𝗴𝗲𝘁 𝗠𝗲𝗻𝘂' },
+    { command: 'start', description: '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨' },
+    { command: 'restart', description: '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧' },
+    { command: 'menu', description: '🎒 𝟰𝗗 𝗣𝗼𝗰𝗸𝗲𝘁 𝗚𝗮𝗱𝗴𝗲𝘁 𝗠𝗲𝗻𝗨' },
     { command: 'admin', description: '🛡️ 𝗢𝘄𝗻𝗲𝗿 𝗔𝗱𝗺𝗶𝗻 𝗣𝗮𝗻𝗲𝗹' }
   ]).catch(err => console.warn('Could not register bot commands:', err.message));
 
@@ -58,6 +59,7 @@ export function initBot() {
 
   // ==================== PUBLIC USER COMMANDS ====================
   bot.command('start', handleStart);
+  bot.command('restart', handleStart);
   bot.command('menu', showMainMenu);
 
   // ==================== ADMIN ONLY COMMANDS ====================
@@ -112,8 +114,13 @@ export function initBot() {
 
     const userId = ctx.from?.id;
 
-    // 1. Big Start Button in Center
-    if (['🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀', '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨', '🚀 START / MENU', '🚀 START', '🚀 𝗨𝗡𝗟𝗢𝗖𝗞 𝟰𝗗 𝗣𝗢𝗖𝗞𝗘𝗧', 'Start', 'start', '/start'].includes(text)) {
+    // 1. Big Restart / Start Button in Center
+    const isRestartOrStart = [
+      '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧', '🔄 RESTART', '🔄 𝗥𝗘𝗦𝗧𝗔𝗥𝗧 💀', '🚀 𝗥𝗘𝗦𝗧𝗔𝗥𝗧', '🚀 RESTART', 'Restart', 'restart', 'RESTART', '/restart',
+      '🚀 𝗦𝗧𝗔𝗥𝗧 𝗗𝗢𝗥𝗔𝗘𝗠𝗢𝗡 𝗣𝗔𝗡𝗘𝗟 💀', '🚀 START DORAEMON PANEL 💀', '🚀 𝗦𝗧𝗔𝗥𝗧 / 𝗠𝗘𝗡𝗨', '🚀 START / MENU', '🚀 START', '🚀 𝗨𝗡𝗟𝗢𝗖𝗞 𝟰𝗗 𝗣𝗢𝗖𝗞𝗘𝗧', 'Start', 'start', 'START', '/start'
+    ].includes(text) || text.toLowerCase() === 'restart' || text.toLowerCase() === 'start';
+
+    if (isRestartOrStart) {
       await ctx.replyWithChatAction('typing').catch(() => {});
       return handleStart(ctx);
     }
