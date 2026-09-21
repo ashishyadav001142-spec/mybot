@@ -77,6 +77,11 @@ export function initBot() {
     await verifyUserChannels(ctx, true);
   });
 
+  bot.callbackQuery('flow:restart', async (ctx) => {
+    await ctx.answerCallbackQuery().catch(() => {});
+    await handleStart(ctx);
+  });
+
   bot.callbackQuery('flow:menu', async (ctx) => {
     await ctx.answerCallbackQuery().catch(() => {});
     await ctx.replyWithChatAction('typing').catch(() => {});

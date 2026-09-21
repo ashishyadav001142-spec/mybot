@@ -1,6 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
-import { getDoraemonBottomKeyboard } from './menu.js';
+import { getDoraemonBottomKeyboard, getMainInlineKeyboard } from './menu.js';
 import { getUnjoinedChannels } from './verification.js';
 import { formatMessage, safeReply, toSmallCaps } from '../../utils/format.js';
 
@@ -25,13 +25,13 @@ export async function handleStart(ctx) {
   const unjoinedChannels = await getUnjoinedChannels(ctx, user.id);
 
   // Agar sabhi channels joined hain (ya koi mandatory channel nahi hai):
-  // Toh sidha Welcome name aur bottom buttons bahar aayein!
+  // Toh sidha Welcome name aur INLINE BUTTONS chat ke andar bahar dikhein!
   if (unjoinedChannels.length === 0) {
     firestoreService.setUserVerified(user.id, true).catch(() => {});
-    const bottomKb = await getDoraemonBottomKeyboard(user.id);
+    const inlineKb = await getMainInlineKeyboard(user.id);
     const welcomeText = formatMessage(settings.welcomeMessage || '👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*', user);
     return safeReply(ctx, welcomeText, {
-      reply_markup: bottomKb
+      reply_markup: inlineKb
     });
   }
 

@@ -1,6 +1,6 @@
 import { InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
-import { getDoraemonBottomKeyboard } from './menu.js';
+import { getDoraemonBottomKeyboard, getMainInlineKeyboard } from './menu.js';
 import { formatMessage, safeReply, safeEditMessageText, toSmallCaps } from '../../utils/format.js';
 
 /**
@@ -68,7 +68,7 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
   // If all channels are joined:
   if (unjoinedChannels.length === 0) {
     await firestoreService.setUserVerified(userId, true);
-    const bottomKb = await getDoraemonBottomKeyboard(userId);
+    const inlineKb = await getMainInlineKeyboard(userId);
 
     // Clean up: Delete the old join prompt message completely from chat
     try {
@@ -86,7 +86,7 @@ export async function verifyUserChannels(ctx, isCheckJoin = true) {
     const verifiedText = formatMessage(settings.verifiedMessage || settings.welcomeMessage || '👋 *ᴡᴇʟᴄᴏᴍᴇ, {name}!*', ctx.from);
 
     return safeReply(ctx, verifiedText, {
-      reply_markup: bottomKb
+      reply_markup: inlineKb
     });
   }
 

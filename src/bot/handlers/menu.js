@@ -2,7 +2,7 @@ import { Keyboard, InlineKeyboard } from 'grammy';
 import { dbService as firestoreService } from '../../services/db.js';
 import { isOwner } from '../middlewares/auth.js';
 import { openAdminPanel } from './admin.js';
-import { formatMessage, safeReply, toSmallCaps } from '../../utils/format.js';
+import { formatMessage, safeReply, safeEditMessageText, toSmallCaps } from '../../utils/format.js';
 
 /**
  * Builds the stylish bottom ReplyKeyboard (Chat ke bahar, screen ke bottom me)
@@ -44,7 +44,44 @@ export async function getDoraemonBottomKeyboard(userId) {
 }
 
 /**
- * Displays the dynamic main menu with the bottom keyboard
+ * Builds the main dynamic INLINE keyboard (Always 100% visible inside the message bubble on all devices)
+ */
+export async function getMainInlineKeyboard(userId) {
+  const keyboard = new InlineKeyboard();
+
+  // 1. Restart Button (Full Row)
+  keyboard.text('🔄 ʀᴇsᴛᴀʀᴛ', 'flow:restart').row();
+
+  // 2. Fetch enabled TOP-LEVEL buttons (e.g. BGMI)
+  const buttons = firestoreService.getMainButtons 
+    ? await firestoreService.getMainButtons()
+    : (await firestoreService.getButtons()).filter(b => b.enabled !== false && (!b.url || !b.url.startsWith('parent:')));
+
+  let count = 0;
+  for (const btn of buttons) {
+    keyboard.text(toSmallCaps(btn.name), `btn:action:${btn.id}`);
+    count++;
+    if (count % 2 === 0) {
+      keyboard.row();
+    }
+  }
+
+  if (count % 2 !== 0) {
+    keyboard.row();
+  }
+
+  // 3. Control Row: Refresh & Admin panel
+  if (isOwner(userId)) {
+    keyboard.text('🔄 ʀᴇғʀᴇsʜ', 'flow:menu').text('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ', 'admin:panel').row();
+  } else {
+    keyboard.text('🔄 ʀᴇғʀᴇsʜ ᴍᴇɴᴜ', 'flow:menu').row();
+  }
+
+  return keyboard;
+}
+
+/**
+ * Displays the dynamic main menu with the inline keyboard
  */
 export async function showMainMenu(ctx) {
   const userId = ctx.from?.id;
@@ -54,15 +91,23 @@ export async function showMainMenu(ctx) {
   }
   await ctx.replyWithChatAction('typing').catch(() => {});
 
-  const [bottomKb, settings] = await Promise.all([
-    getDoraemonBottomKeyboard(userId),
+  const [inlineKb, settings] = await Promise.all([
+    getMainInlineKeyboard(userId),
     firestoreService.getBotSettings()
   ]);
 
   const menuText = formatMessage(settings.welcomeMessage || '👋 *Welcome, {name}!*', ctx.from);
 
+  if (ctx.callbackQuery) {
+    try {
+      return await safeEditMessageText(ctx, menuText, {
+        reply_markup: inlineKb
+      });
+    } catch {}
+  }
+
   await safeReply(ctx, menuText, {
-    reply_markup: bottomKb
+    reply_markup: inlineKb
   });
 }
 
@@ -90,6 +135,14 @@ export async function handleButtonExecution(ctx, button) {
       button.message || `📂 *${toSmallCaps(button.name)}*\n\n_ᴘʟᴇᴀsᴇ sᴇʟᴇᴄᴛ ᴀɴ ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ:_`,
       ctx.from
     );
+
+    if (ctx.callbackQuery) {
+      try {
+        return await safeEditMessageText(ctx, promptText, {
+          reply_markup: keyboard
+        });
+      } catch {}
+    }
 
     return safeReply(ctx, promptText, {
       reply_markup: keyboard
