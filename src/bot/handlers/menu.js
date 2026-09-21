@@ -145,37 +145,37 @@ export async function handleButtonExecution(ctx, button) {
     });
   }
 
-  // 2. No sub-buttons: Execute regular button action
+  // 2. Button has NO sub-buttons/Apps: Check if it has a direct file, link, or no data
   if (button.type === 'FILE') {
-    await ctx.replyWithChatAction('upload_document').catch(() => {});
+    const hasValidFile = button.telegramFileId && 
+      button.telegramFileId !== 'SAMPLE_FILE_ID' && 
+      !button.telegramFileId.includes('SAMPLE');
 
-    const caption = formatMessage(
-      button.message || `📦 *${button.name}*\n\n🎒 *Doraemon 4D Pocket Gadget Ready!*`,
-      ctx.from
-    );
-
-    // Check if telegramFileId is missing, empty, or placeholder
-    const isPlaceholder = !button.telegramFileId || 
-      button.telegramFileId === 'SAMPLE_FILE_ID' || 
-      button.telegramFileId.includes('SAMPLE');
-
-    if (isPlaceholder) {
+    if (!hasValidFile) {
       const files = await firestoreService.getFiles();
       const realFile = files.find(f => f.telegramFileId && !f.telegramFileId.includes('SAMPLE'));
-      
+
       if (realFile) {
         button.telegramFileId = realFile.telegramFileId;
         firestoreService.updateButton(button.id, { telegramFileId: realFile.telegramFileId }).catch(() => {});
       } else {
-        let msg = `${caption}\n\n`;
-        if (isOwner(userId)) {
-          msg += `⚠️ *Abhi tak koi File ya Video upload nahi ki gayi hai!*\n\n💡 *Owner Tip:* Apne phone ya PC se koi bhi APK, Video ya Document is bot chat me direct send/forward karein — bot use automatically save karke attach kar dega!`;
-        } else {
-          msg += `⏳ *File is currently being updated by admin.*\nPlease check back soon!`;
+        const noDataKb = new InlineKeyboard().text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
+        const noDataMsg = formatMessage(
+          `📁 *${toSmallCaps(button.name)}*\n\n⚠️ *ɴᴏ ᴅᴀᴛᴀ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴜʀʀᴇɴᴛʟʏ*\n_ᴄᴜʀʀᴇɴᴛʟʏ ᴛʜᴇʀᴇ ᴀʀᴇ ɴᴏ ғɪʟᴇs ᴜᴘʟᴏᴀᴅᴇᴅ ɪɴ ᴛʜɪs sᴇᴄᴛɪᴏɴ._`,
+          ctx.from
+        );
+        if (ctx.callbackQuery) {
+          return safeEditMessageText(ctx, noDataMsg, { reply_markup: noDataKb });
         }
-        return safeReply(ctx, msg, { reply_markup: bottomKb });
+        return safeReply(ctx, noDataMsg, { reply_markup: bottomKb });
       }
     }
+
+    await ctx.replyWithChatAction('upload_document').catch(() => {});
+    const caption = formatMessage(
+      button.message || `📦 *${toSmallCaps(button.name)}*\n\n🎒 *Doraemon 4D Pocket Gadget Ready!*`,
+      ctx.from
+    );
 
     try {
       await ctx.replyWithDocument(button.telegramFileId, {
@@ -183,9 +183,10 @@ export async function handleButtonExecution(ctx, button) {
         reply_markup: bottomKb,
         parse_mode: 'Markdown'
       });
+      return;
     } catch (err) {
       console.error(`Error sending file (${button.telegramFileId}):`, err.message);
-      
+
       // Automatic Cloud Fallback: Try sending directly from Supabase Storage
       try {
         const files = await firestoreService.getFiles();
@@ -203,24 +204,35 @@ export async function handleButtonExecution(ctx, button) {
         console.error('Fallback cloud download failed:', fallbackErr.message);
       }
 
-      let errorText = `⚠️ *File temporarily unavailable.*`;
-      if (isOwner(userId)) {
-        errorText = `📦 *${button.name}*\n\n⚠️ *Invalid Telegram File ID:* \`${button.telegramFileId}\`\n\n💡 *Owner Tip:* Is bot chat me direct APK/Video file send/forward karein to update!`;
+      const noDataKb = new InlineKeyboard().text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
+      const errorText = formatMessage(
+        `📁 *${toSmallCaps(button.name)}*\n\n⚠️ *ɴᴏ ᴅᴀᴛᴀ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴜʀʀᴇɴᴛʟʏ*\n_ғɪʟᴇ ɪs ᴛᴇᴍᴘᴏʀᴀʀɪʟʏ ᴜɴᴀᴠᴀɪʟᴀʙʟᴇ._`,
+        ctx.from
+      );
+      if (ctx.callbackQuery) {
+        return safeEditMessageText(ctx, errorText, { reply_markup: noDataKb });
       }
-      await safeReply(ctx, errorText, { reply_markup: bottomKb });
+      return safeReply(ctx, errorText, { reply_markup: bottomKb });
     }
-  } else if (button.type === 'TEXT') {
-    await ctx.replyWithChatAction('typing').catch(() => {});
-    const msg = formatMessage(button.message || 'ℹ️ *No gadget info configured for this button.*', ctx.from);
-    await safeReply(ctx, msg, {
-      reply_markup: bottomKb
-    });
   } else if (button.type === 'LINK' || button.type === 'CHANNEL') {
     const url = button.url || 'https://t.me';
     const text = button.message 
       ? formatMessage(button.message, ctx.from) 
       : `🚪 *𝗔𝗡𝗬𝗪𝗛𝗘𝗥𝗘 𝗗𝗢𝗢𝗥 𝗚𝗔𝗗𝗚𝗘𝗧*\n\n🔗 *Official Link:* ${url}`;
-    await safeReply(ctx, text, {
+    return safeReply(ctx, text, {
+      reply_markup: bottomKb
+    });
+  } else {
+    // TEXT button with no apps and no files inside it
+    const noDataKb = new InlineKeyboard().text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
+    const noDataMsg = formatMessage(
+      `📁 *${toSmallCaps(button.name)}*\n\n⚠️ *ɴᴏ ᴅᴀᴛᴀ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴜʀʀᴇɴᴛʟʏ*\n_ᴄᴜʀʀᴇɴᴛʟʏ ᴛʜᴇʀᴇ ᴀʀᴇ ɴᴏ ᴀᴘᴘs ᴏʀ ғɪʟᴇs ɪɴ ᴛʜɪs sᴇᴄᴛɪᴏɴ._`,
+      ctx.from
+    );
+    if (ctx.callbackQuery) {
+      return safeEditMessageText(ctx, noDataMsg, { reply_markup: noDataKb });
+    }
+    return safeReply(ctx, noDataMsg, {
       reply_markup: bottomKb
     });
   }
@@ -292,20 +304,31 @@ export async function handleSubButtonClick(ctx) {
     });
   }
 
-  // If this is an App button with no files added yet
-  if (subBtn.name.startsWith('📱') && childButtons.length === 0) {
-    const promptText = formatMessage(
-      `📱 *${toSmallCaps(subBtn.name)}*\n\n⚠️ *Is App me abhi tak koi files upload nahi ki gayi hain.*`,
+  // If this App/sub-button has no child files or content
+  if (childButtons.length === 0 && (subBtn.type !== 'FILE' || !subBtn.telegramFileId || subBtn.telegramFileId.includes('SAMPLE'))) {
+    const noDataText = formatMessage(
+      `📱 *${toSmallCaps(subBtn.name)}*\n\n⚠️ *ɴᴏ ᴅᴀᴛᴀ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴜʀʀᴇɴᴛʟʏ*\n_ᴄᴜʀʀᴇɴᴛʟʏ ᴛʜᴇʀᴇ ᴀʀᴇ ɴᴏ ғɪʟᴇs ᴏʀ ᴅᴀᴛᴀ ᴜᴘʟᴏᴀᴅᴇᴅ ʜᴇʀᴇ._`,
       ctx.from
     );
-    return safeReply(ctx, promptText, {
+    if (ctx.callbackQuery) {
+      return safeEditMessageText(ctx, noDataText, {
+        reply_markup: backKeyboard
+      });
+    }
+    return safeReply(ctx, noDataText, {
       reply_markup: backKeyboard
     });
   }
 
   if (subBtn.type === 'FILE') {
     if (!subBtn.telegramFileId || subBtn.telegramFileId.includes('SAMPLE')) {
-      const msg = `📦 *${subBtn.name}*\n\n${formatMessage(subBtn.message, ctx.from) || ''}\n\n⚠️ *File/Video abhi upload nahi hui hai.*`;
+      const msg = formatMessage(
+        `📦 *${toSmallCaps(subBtn.name)}*\n\n⚠️ *ɴᴏ ᴅᴀᴛᴀ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴜʀʀᴇɴᴛʟʏ*\n_ᴄᴜʀʀᴇɴᴛʟʏ ᴛʜᴇʀᴇ ɪs ɴᴏ ғɪʟᴇ ᴀᴠᴀɪʟᴀʙʟᴇ._`,
+        ctx.from
+      );
+      if (ctx.callbackQuery) {
+        return safeEditMessageText(ctx, msg, { reply_markup: backKeyboard });
+      }
       return safeReply(ctx, msg, { reply_markup: backKeyboard });
     }
 
