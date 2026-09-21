@@ -83,7 +83,60 @@ export async function handleMediaUpload(ctx) {
       }
     }
 
-    // Save metadata in Supabase files table
+    // Check if owner was in "Add File to Button" session:
+    const session = adminSessionState.get(userId);
+    if (session && session.state === 'AWAITING_FILE_MEDIA_UPLOAD') {
+      const { parentId, parentName, itemName } = session;
+      adminSessionState.delete(userId);
+
+      const finalName = itemName || fileName;
+
+      // Save file record
+      const fileRecord = await firestoreService.addFile({
+        name: finalName,
+        telegramFileId: fileId,
+        fileSize: fileSize,
+        mimeType: mimeType,
+        description: `Attached under ${parentName}`,
+        storageUrl: storageUrl || ''
+      });
+
+      // Add sub-button under parentId
+      const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
+      await firestoreService.addButton({
+        name: `📄 ${finalName}`,
+        type: 'FILE',
+        url: `parent:${parentId}`,
+        telegramFileId: fileId,
+        message: `📦 *${finalName}*\n\n🎒 *Category:* ${parentName}\n⚡ *File ready to install/download!*`,
+        position: existingSub.length + 1,
+        enabled: true
+      });
+
+      const sizeMb = fileSize ? (fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown';
+
+      const successKb = new InlineKeyboard()
+        .text('➕ Add Another File', 'admin:file_add_start').row()
+        .text(`📂 View "${parentName}"`, `admin:btn_view:${parentId}`).row()
+        .text('📁 View All Files', 'admin:files');
+
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        `🎉 *File Successfully Added!*\n\n` +
+        `• *Button (Category):* *${parentName}*\n` +
+        `• *Display Name:* *${finalName}*\n` +
+        `• *Type:* \`${mediaLabel}\` (${sizeMb})\n\n` +
+        `👉 *Ab jab koi user "${parentName}" button dabayega, to use "${finalName}" dikhega aur click karte hi yeh file mil jayegi!*`,
+        {
+          reply_markup: successKb,
+          parse_mode: 'Markdown'
+        }
+      );
+      return;
+    }
+
+    // Default: Save metadata in Supabase files table
     const fileRecord = await firestoreService.addFile({
       name: fileName,
       telegramFileId: fileId,
@@ -96,9 +149,8 @@ export async function handleMediaUpload(ctx) {
     const sizeMb = fileSize ? (fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown';
 
     const keyboard = new InlineKeyboard()
-      .text('📱 Set as Main APK Button', `admin:set_apk:${fileRecord.id}`).row()
-      .text('➕ Create as New Main Button', `admin:quick_btn:${fileRecord.id}`).row()
-      .text('📂 Add as Sub-Button under Menu', `admin:attach_as_sub:${fileRecord.id}`).row()
+      .text('📂 Add to a Button', `admin:attach_as_sub:${fileRecord.id}`).row()
+      .text('🗑️ Delete File', `admin:file_del:${fileRecord.id}`).row()
       .text('📁 View All Files', 'admin:files');
 
     const storageLine = storageUrl ? `• *Supabase Storage:* [Direct Cloud Link](${storageUrl})\n` : '';
@@ -289,42 +341,89 @@ export async function handleAdminTextSession(ctx) {
     return true;
   }
 
-  // 8. Handle Add Main Button
-  if (session.state === 'AWAITING_BUTTON_INFO') {
-    const parts = text.split('|').map(p => p.trim());
-    if (parts.length < 3) {
-      await safeReply(
-        ctx,
-        `⚠️ *Invalid Format!* Please use:\n\`NAME | TYPE | VALUE | [POSITION]\`\n\nExample:\n\`📱 Download APK | FILE | <telegram_file_id> | 1\``
-      );
-      return true;
-    }
-
-    const [name, rawType, value, posStr] = parts;
-    const type = rawType.toUpperCase();
-    const position = posStr ? parseInt(posStr, 10) : 0;
-
-    const btnData = {
-      name,
-      type,
-      position: isNaN(position) ? 0 : position,
-      enabled: true
-    };
-
-    if (type === 'FILE') {
-      btnData.telegramFileId = value;
-    } else if (type === 'LINK' || type === 'CHANNEL') {
-      btnData.url = value;
-    } else {
-      btnData.message = value;
-    }
-
-    await firestoreService.addButton(btnData);
+  // 8. Handle Add Main Button (Simple: Name Only)
+  if (session.state === 'AWAITING_BUTTON_NAME_ONLY' || session.state === 'AWAITING_BUTTON_INFO') {
     adminSessionState.delete(userId);
 
-    await safeReply(ctx, `✅ *Button Added Successfully!*\n\n• Name: *${name}*\n• Type: *${type}*\n• Position: *${btnData.position}*`);
-    await openAdminPanel(ctx);
+    let buttonName = text;
+    let type = 'TEXT';
+    let message = `📂 *${buttonName}*\n\n🎒 Niche se file ya option select karein:`;
+    let telegramFileId = '';
+    let url = '';
+
+    if (text.includes('|')) {
+      const parts = text.split('|').map(p => p.trim());
+      buttonName = parts[0];
+      if (parts[1]) type = parts[1].toUpperCase();
+      if (parts[2]) {
+        if (type === 'FILE') telegramFileId = parts[2];
+        else if (type === 'LINK' || type === 'CHANNEL') url = parts[2];
+        else message = parts[2];
+      }
+    }
+
+    const existingButtons = await firestoreService.getButtons();
+    await firestoreService.addButton({
+      name: buttonName,
+      type,
+      message,
+      telegramFileId,
+      url,
+      position: existingButtons.length + 1,
+      enabled: true
+    });
+
+    await safeReply(
+      ctx,
+      `✅ *Button "${buttonName}" successfully add ho gaya!*\n\n` +
+      `Yeh button ab bot ke Main Menu me show hoga.\n` +
+      `Is button me file add karne ke liye *📁 Files & Videos* section me jayein!`
+    );
+    return showButtonsManager(ctx);
+  }
+
+  // 9. Handle File Display Name in Step-by-Step Add File flow
+  if (session.state === 'AWAITING_FILE_ITEM_NAME') {
+    session.itemName = text;
+    session.state = 'AWAITING_FILE_MEDIA_UPLOAD';
+    adminSessionState.set(userId, session);
+
+    await safeReply(
+      ctx,
+      `✅ *File Display Name:* *${session.itemName}*\n` +
+      `📁 *Target Button:* *${session.parentName}*\n\n` +
+      `📤 *Step 3:* Ab apni File, APK, Video, Audio ya Document is chat me send ya forward karein!\n\n` +
+      `_Bot automatically use "${session.parentName}" button ke andar jod dega._`
+    );
     return true;
+  }
+
+  // 10. Handle Attach Name when attaching an already uploaded file
+  if (session.state === 'AWAITING_ATTACH_NAME') {
+    const { parentId, parentName, telegramFileId, fileName } = session;
+    adminSessionState.delete(userId);
+
+    const displayName = text === '/skip' ? fileName : text;
+    const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
+
+    await firestoreService.addButton({
+      name: `📄 ${displayName}`,
+      type: 'FILE',
+      url: `parent:${parentId}`,
+      telegramFileId: telegramFileId,
+      message: `📦 *${displayName}*\n\n🎒 *Category:* ${parentName}\n⚡ Tap download to install directly!`,
+      position: existingSub.length + 1,
+      enabled: true
+    });
+
+    await safeReply(
+      ctx,
+      `🎉 *File Successfully Added!*\n\n` +
+      `• *Category Button:* *${parentName}*\n` +
+      `• *Name in Menu:* *${displayName}*\n\n` +
+      `👉 *Jab user "${parentName}" dabayega to use "${displayName}" dikhega aur click karte hi file mil jayegi!*`
+    );
+    return showButtonDetail(ctx, parentId);
   }
 
   // 9. Handle Add Channel

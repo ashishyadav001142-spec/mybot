@@ -226,9 +226,25 @@ export async function handleSubButtonClick(ctx) {
           parse_mode: 'Markdown'
         });
       } catch (videoErr) {
-        await safeReply(ctx, `❌ *Failed to deliver file:* \`${err.message}\``, {
-          reply_markup: backKeyboard
-        });
+        try {
+          await ctx.replyWithPhoto(subBtn.telegramFileId, {
+            caption: formatMessage(subBtn.message || `🖼️ *${subBtn.name}*`, ctx.from),
+            reply_markup: backKeyboard,
+            parse_mode: 'Markdown'
+          });
+        } catch (photoErr) {
+          try {
+            await ctx.replyWithAudio(subBtn.telegramFileId, {
+              caption: formatMessage(subBtn.message || `🎵 *${subBtn.name}*`, ctx.from),
+              reply_markup: backKeyboard,
+              parse_mode: 'Markdown'
+            });
+          } catch (audioErr) {
+            await safeReply(ctx, `❌ *Failed to deliver file:* \`${err.message}\``, {
+              reply_markup: backKeyboard
+            });
+          }
+        }
       }
     }
   } else if (subBtn.type === 'TEXT') {

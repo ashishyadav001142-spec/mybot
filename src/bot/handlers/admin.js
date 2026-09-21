@@ -299,18 +299,35 @@ export async function showFilesManager(ctx) {
   let text = `📁 *FILES, VIDEOS & APK REPOSITORY*\n\n`;
 
   if (files.length === 0) {
-    text += `_No files or videos uploaded yet._\n`;
+    text += `_No files or videos uploaded yet._\n\n💡 Niche *➕ Add File to Button* dabayein ya direct koi bhi file is chat me bhejein!`;
   } else {
-    files.forEach((f, i) => {
+    text += `_Total Uploaded Files: *${files.length}*_\n`;
+    text += `_Niche kisi bhi file ke samne 🗑️ dabakar use delete kar sakte hain:_\n\n`;
+    files.slice(0, 10).forEach((f, i) => {
       const sizeMb = f.fileSize ? (f.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown';
-      text += `${i + 1}. 📄 *${f.name}* (${sizeMb})\n   File ID: \`${f.telegramFileId}\`\n`;
+      text += `${i + 1}. 📄 *${f.name}* (${sizeMb})\n`;
     });
+    if (files.length > 10) {
+      text += `_...and ${files.length - 10} more files._\n`;
+    }
   }
 
-  text += `\n💡 *How to upload:* Simply send or forward any APK, Video, Audio or Document directly into this chat!`;
+  const keyboard = new InlineKeyboard();
 
-  const keyboard = new InlineKeyboard()
-    .text('🔄 Refresh Files', 'admin:files').row()
+  // Top action: Add File to a Button
+  keyboard.text('➕ 𝗔𝗱𝗱 𝗙𝗶𝗹𝗲 𝘁𝗼 𝗕𝘂𝘁𝘁𝗼𝗻', 'admin:file_add_start').row();
+
+  // Show delete button for each file
+  files.slice(0, 8).forEach(f => {
+    const displayName = f.name.length > 18 ? f.name.substring(0, 16) + '..' : f.name;
+    keyboard
+      .text(`📄 ${displayName}`, `admin:file_info:${f.id}`)
+      .text('🗑️ Del', `admin:file_del:${f.id}`)
+      .row();
+  });
+
+  keyboard
+    .text('🔄 Refresh Files', 'admin:files')
     .text('🔙 Back to Dashboard', 'admin:panel');
 
   if (ctx.callbackQuery) {
@@ -410,6 +427,110 @@ export async function handleAdminCallback(ctx) {
     );
   }
 
+  // ==================== NEW FILE ADD & DELETE FLOW ====================
+  if (data === 'admin:file_add_start') {
+    await ctx.answerCallbackQuery();
+    const buttons = await firestoreService.getButtons();
+    const mainButtons = buttons.filter(b => !b.url || !b.url.startsWith('parent:'));
+
+    if (mainButtons.length === 0) {
+      return safeReply(
+        ctx,
+        `⚠️ *Pehle koi Button banayein!*\n\n` +
+        `File kisi na kisi button/folder ke andar rahegi.\n` +
+        `Pehle Admin Panel me *🔘 Dynamic Buttons* me jakar naya button create karein.`
+      );
+    }
+
+    const keyboard = new InlineKeyboard();
+    mainButtons.forEach(mb => {
+      keyboard.text(`📁 ${mb.name}`, `admin:file_sel_btn:${mb.id}`).row();
+    });
+    keyboard.text('🔙 Cancel', 'admin:files');
+
+    const promptText = 
+      `📂 *Step 1: Button Select Karein*\n\n` +
+      `Ye file konse Button ke andar add karni hai?\n` +
+      `Niche se button chuniye:`;
+
+    if (ctx.callbackQuery) {
+      return safeEditMessageText(ctx, promptText, { reply_markup: keyboard });
+    } else {
+      return safeReply(ctx, promptText, { reply_markup: keyboard });
+    }
+  }
+
+  if (data.startsWith('admin:file_sel_btn:')) {
+    const parentId = data.replace('admin:file_sel_btn:', '');
+    const buttons = await firestoreService.getButtons();
+    const parent = buttons.find(b => b.id === parentId);
+
+    if (!parent) return showFilesManager(ctx);
+
+    await ctx.answerCallbackQuery();
+    adminSessionState.set(userId, {
+      state: 'AWAITING_FILE_ITEM_NAME',
+      parentId: parent.id,
+      parentName: parent.name
+    });
+
+    return safeReply(
+      ctx,
+      `📁 *Target Button:* *${parent.name}*\n\n` +
+      `📝 *Step 2: File ka Display Name bhejiye*\n` +
+      `User ko button dabane par jo naam dikhna chahiye wo likhkar bhejiye:\n` +
+      `(e.g. \`BGMI 3.5 64-Bit\` ya \`VIP Injector v2\` ya \`Tutorial Video\`)\n\n` +
+      `_Naam likhkar send karein, ya /cancel bhejein._`
+    );
+  }
+
+  if (data.startsWith('admin:file_info:')) {
+    const fileId = data.replace('admin:file_info:', '');
+    const files = await firestoreService.getFiles();
+    const f = files.find(file => file.id === fileId);
+    if (!f) return showFilesManager(ctx);
+
+    await ctx.answerCallbackQuery();
+    const sizeMb = f.fileSize ? (f.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown';
+    const text = 
+      `📄 *FILE DETAILS*\n\n` +
+      `• *Name:* *${f.name}*\n` +
+      `• *Size:* \`${sizeMb}\`\n` +
+      `• *Type:* \`${f.mimeType || 'file'}\`\n` +
+      `• *File ID:*\n\`${f.telegramFileId}\`\n\n` +
+      (f.storageUrl ? `• *Cloud URL:* [Supabase Link](${f.storageUrl})\n\n` : '');
+
+    const kb = new InlineKeyboard()
+      .text('📂 Add to a Button', `admin:attach_as_sub:${f.id}`).row()
+      .text('🗑️ Delete This File', `admin:file_del:${f.id}`).row()
+      .text('🔙 Back to Files', 'admin:files');
+
+    return safeEditMessageText(ctx, text, { reply_markup: kb, disable_web_page_preview: true });
+  }
+
+  if (data.startsWith('admin:file_del:')) {
+    const fileId = data.replace('admin:file_del:', '');
+    const files = await firestoreService.getFiles();
+    const file = files.find(f => f.id === fileId);
+
+    if (file) {
+      await firestoreService.deleteFile(fileId);
+
+      // Also clean up any sub-buttons linking to this file
+      const buttons = await firestoreService.getButtons();
+      const linkedButtons = buttons.filter(b => b.telegramFileId === file.telegramFileId);
+      for (const lb of linkedButtons) {
+        await firestoreService.deleteButton(lb.id).catch(() => {});
+      }
+
+      await ctx.answerCallbackQuery({ text: `🗑️ File "${file.name}" delete ho gayi!` });
+      await safeReply(ctx, `🗑️ *File "${file.name}" delete ho gayi hai!*`);
+    } else {
+      await ctx.answerCallbackQuery({ text: 'File not found or already deleted.' });
+    }
+    return showFilesManager(ctx);
+  }
+
   if (data.startsWith('admin:attach_as_sub:')) {
     const fileId = data.replace('admin:attach_as_sub:', '');
     await ctx.answerCallbackQuery();
@@ -443,19 +564,23 @@ export async function handleAdminCallback(ctx) {
     const parent = buttons.find(b => b.id === parentId);
 
     if (file && parent) {
-      const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
-      await firestoreService.addButton({
-        name: `📥 ${file.name.substring(0, 20)}`,
-        type: 'FILE',
-        url: `parent:${parentId}`,
+      adminSessionState.set(userId, {
+        state: 'AWAITING_ATTACH_NAME',
+        fileRecordId: file.id,
         telegramFileId: file.telegramFileId,
-        message: `📦 Download: *${file.name}*`,
-        position: existingSub.length + 1,
-        enabled: true
+        fileName: file.name,
+        parentId: parent.id,
+        parentName: parent.name
       });
 
-      await safeReply(ctx, `✅ *File attached as Sub-Button under "${parent.name}"!*`);
-      return showButtonDetail(ctx, parentId);
+      return safeReply(
+        ctx,
+        `📁 *Selected Button:* *${parent.name}*\n` +
+        `📄 *File:* \`${file.name}\`\n\n` +
+        `📝 *Is file ka Display Name bhejiye* (jo button ke andar user ko dikhega):\n` +
+        `(e.g. \`BGMI 3.5 APK\` ya \`VIP Hack v1\`)\n\n` +
+        `_Ya fir \`/skip\` bhejein wahi naam rakhne ke liye._`
+      );
     }
   }
 
@@ -663,17 +788,12 @@ export async function handleAdminCallback(ctx) {
 
   if (data === 'admin:btn_add') {
     await ctx.answerCallbackQuery();
-    adminSessionState.set(userId, { state: 'AWAITING_BUTTON_INFO' });
+    adminSessionState.set(userId, { state: 'AWAITING_BUTTON_NAME_ONLY' });
     return safeReply(
       ctx,
-      `➕ *Add New Main Button*\n\nPlease send the button details in this format:\n` +
-      `\`NAME | TYPE | VALUE | POSITION\`\n\n` +
-      `*Types:* \`FILE\`, \`LINK\`, \`TEXT\`, \`CHANNEL\`\n\n` +
-      `*Examples:*\n` +
-      `• \`📱 Download App | LINK | https://example.com | 1\`\n` +
-      `• \`💬 VIP Support | TEXT | Contact @vip_support for activation | 2\`\n` +
-      `• \`📦 Latest APK | FILE | <telegram_file_id> | 3\`\n\n` +
-      `_Or send /cancel to cancel._`
+      `➕ *Add New Button*\n\n` +
+      `Sirf naye button ka *Naam* likhkar bhejiye (e.g. \`📦 BGMI MODS\` ya \`📱 APKS\` ya \`🚀 VIP INJECTOR\`):\n\n` +
+      `_Naam likhte hi button sidha add ho jayega! Aur koi details nahi chahiye._ (Cancel ke liye /cancel)`
     );
   }
 
