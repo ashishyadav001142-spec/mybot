@@ -2,7 +2,7 @@ import { InlineKeyboard } from 'grammy';
 import { isOwner } from '../middlewares/auth.js';
 import { dbService as firestoreService } from '../../services/db.js';
 import { adminSessionState, openAdminPanel, showMessagesManager, showButtonDetail, showButtonsManager } from './admin.js';
-import { safeReply, formatMessage, DISCLAIMER_TEXT, toSmallCaps } from '../../utils/format.js';
+import { safeReply, formatMessage, toSmallCaps, styleMessageText } from '../../utils/format.js';
 
 /**
  * Handles incoming Telegram media (Documents, APKs, Videos, Photos, Audio) from Owner
@@ -471,9 +471,7 @@ export async function handleAdminTextSession(ctx) {
     let sentCount = 0;
     let failCount = 0;
 
-    const broadcastText = text.includes("ᴛʜɪs ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴛʜɪs ᴘᴏsᴛ")
-      ? text
-      : `${text.trim()}\n\n${DISCLAIMER_TEXT}`;
+    const broadcastText = styleMessageText(text);
 
     for (const u of verifiedUsers) {
       try {

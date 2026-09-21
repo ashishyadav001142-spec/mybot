@@ -15,19 +15,29 @@ export function toSmallCaps(str) {
   return str.split('').map(char => SMALL_CAPS_MAP[char] || char).join('');
 }
 
-export const DISCLAIMER_TEXT = "━━━━━━━━━━━━━━━━━━━━━\n⚠️ ᴛʜɪs ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴛʜɪs ᴘᴏsᴛ ᴅᴏᴇsɴ'ᴛ ᴘʀᴏᴍᴏᴛᴇ ᴀɴʏ ɪʟʟᴇɢᴀʟ ᴀᴄᴛɪᴠɪᴛʏ.";
+/**
+ * Applies stylish Small-Caps font to text, preserving URLs, Markdown links, and usernames.
+ */
+export function styleMessageText(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text.replace(/(https?:\/\/[^\s\)]+)|(@[a-zA-Z0-9_]+)|([a-zA-Z]+)/g, (match, url, mention, word) => {
+    if (url) return url;
+    if (mention) return mention;
+    if (word) return toSmallCaps(word);
+    return match;
+  });
+}
 
 /**
- * Formats template strings with dynamic user variables.
- * Automatically attaches the stylish disclaimer footer to user-facing messages.
+ * Formats template strings with dynamic user variables and converts text to Small-Caps font.
  * Supported variables:
  * - {name}: First name or 'User'
  * - {first_name}: First name or 'User'
  * - {username}: Username (with @) or name
  * - {id}: User Telegram ID
  */
-export function formatMessage(template, user = {}, withDisclaimer = true) {
-  if (!template) return withDisclaimer ? DISCLAIMER_TEXT : '';
+export function formatMessage(template, user = {}) {
+  if (!template) return '';
   const name = user.first_name || user.firstName || 'User';
   const username = user.username ? `@${user.username}` : name;
   const id = user.id || user.telegramId || '';
@@ -38,12 +48,7 @@ export function formatMessage(template, user = {}, withDisclaimer = true) {
     .replace(/{username}/gi, username)
     .replace(/{id}/gi, String(id));
 
-  // Auto-append stylish disclaimer if requested and not already present
-  if (withDisclaimer && !formatted.includes("ᴛʜɪs ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴛʜɪs ᴘᴏsᴛ")) {
-    formatted = `${formatted.trim()}\n\n${DISCLAIMER_TEXT}`;
-  }
-
-  return formatted;
+  return styleMessageText(formatted);
 }
 
 /**
