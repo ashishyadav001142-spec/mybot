@@ -20,8 +20,14 @@ const bot = initBot();
 
 // Mount Telegram Webhook for Vercel Serverless & Production Webhook mode
 if (bot) {
-  app.use('/api/webhook', webhookCallback(bot, 'express'));
-  app.use('/telegram-webhook', webhookCallback(bot, 'express'));
+  app.use('/api/webhook', webhookCallback(bot, 'express', {
+    timeoutMilliseconds: 30000,
+    onTimeout: 'return'
+  }));
+  app.use('/telegram-webhook', webhookCallback(bot, 'express', {
+    timeoutMilliseconds: 30000,
+    onTimeout: 'return'
+  }));
 }
 
 // 1-Click Webhook Registration for Vercel

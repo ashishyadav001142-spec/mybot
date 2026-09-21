@@ -3,11 +3,26 @@ import { dbService as firestoreService } from '../../services/db.js';
 import { getDoraemonBottomKeyboard, getMainInlineKeyboard } from './menu.js';
 import { formatMessage, safeReply, safeEditMessageText, toSmallCaps } from '../../utils/format.js';
 
+import { isOwner } from '../middlewares/auth.js';
+
 /**
  * Checks which enabled channels the user has NOT yet joined.
  * Channels already joined will NOT be returned.
  */
 export async function getUnjoinedChannels(ctx, userId) {
+  // 1. Owner is always fully verified - zero latency!
+  if (isOwner(userId)) {
+    return [];
+  }
+
+  // 2. Check if user is already verified in DB - zero latency!
+  try {
+    const user = await firestoreService.getUser(userId);
+    if (user && user.isVerified) {
+      return [];
+    }
+  } catch {}
+
   const channels = await firestoreService.getEnabledChannels();
   if (!channels || channels.length === 0) {
     return [];
@@ -21,7 +36,10 @@ export async function getUnjoinedChannels(ctx, userId) {
       if (!targetChat) return;
 
       try {
-        const member = await ctx.api.getChatMember(targetChat, userId);
+        const member = await Promise.race([
+          ctx.api.getChatMember(targetChat, userId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500))
+        ]);
         const validStatuses = ['creator', 'administrator', 'member'];
         let hasJoined = validStatuses.includes(member.status);
         if (member.status === 'restricted') {
@@ -31,12 +49,8 @@ export async function getUnjoinedChannels(ctx, userId) {
           unjoined.push(channel);
         }
       } catch (err) {
-        // If user not found in channel, they have definitely not joined
         if (err.description && err.description.includes('user not found')) {
           unjoined.push(channel);
-        } else if (err.description && err.description.includes('bot is not a member')) {
-          // If bot is not admin in channel, don't crash or block
-          console.warn(`🚨 Bot is not admin in ${targetChat}, skipping strict check.`);
         } else {
           console.warn(`Could not verify channel ${targetChat}:`, err.message);
         }

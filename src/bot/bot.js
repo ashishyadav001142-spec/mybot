@@ -68,15 +68,6 @@ export function initBot() {
   bot.command('files', requireOwner, showFilesManager);
   bot.command('messages', requireOwner, showMessagesManager);
 
-  // ==================== BUTTON RUNNING ANIMATION ====================
-  bot.use(async (ctx, next) => {
-    if (ctx.callbackQuery) {
-      // Shows animated progress spinner directly on top of the clicked button
-      ctx.answerCallbackQuery({ text: '⚡ ᴘʀᴏᴄᴇssɪɴɢ...' }).catch(() => {});
-      ctx.replyWithChatAction('typing').catch(() => {});
-    }
-    await next();
-  });
 
   // ==================== CALLBACK ROUTING ====================
   bot.callbackQuery('flow:start_verification', async (ctx) => {

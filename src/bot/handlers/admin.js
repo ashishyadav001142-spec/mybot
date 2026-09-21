@@ -379,41 +379,41 @@ export async function handleAdminCallback(ctx) {
     return ctx.answerCallbackQuery({
       text: '⛔ Access Denied! Only Owner (8833095685) can access Admin functions.',
       show_alert: true
-    });
+    }).catch(() => {});
   }
+
+  // Instant response to Telegram so spinner stops immediately
+  await ctx.answerCallbackQuery().catch(() => {});
 
   const data = ctx.callbackQuery.data;
 
   if (data === 'admin:panel') {
-    await ctx.answerCallbackQuery();
     return openAdminPanel(ctx);
   }
 
   if (data === 'admin:messages') {
-    await ctx.answerCallbackQuery();
     return showMessagesManager(ctx);
   }
 
   if (data === 'admin:buttons') {
-    await ctx.answerCallbackQuery();
     return showButtonsManager(ctx);
   }
 
   if (data.startsWith('admin:btn_view:')) {
     const id = data.replace('admin:btn_view:', '');
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     return showButtonDetail(ctx, id);
   }
 
   if (data.startsWith('admin:sub_manage:')) {
     const parentId = data.replace('admin:sub_manage:', '');
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     return showSubButtonsManager(ctx, parentId);
   }
 
   if (data.startsWith('admin:sub_add:')) {
     const parentId = data.replace('admin:sub_add:', '');
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     adminSessionState.set(userId, { state: 'AWAITING_SUB_BUTTON_INFO', parentId });
 
     return safeReply(
@@ -433,7 +433,7 @@ export async function handleAdminCallback(ctx) {
 
   // ==================== ADD APP FLOW ====================
   if (data === 'admin:app_add_start') {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const buttons = await firestoreService.getButtons();
     const mainButtons = buttons.filter(b => !b.url || !b.url.startsWith('parent:'));
 
@@ -471,7 +471,7 @@ export async function handleAdminCallback(ctx) {
 
     if (!parent) return showButtonsManager(ctx);
 
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     adminSessionState.set(userId, {
       state: 'AWAITING_APP_NAME',
       parentId: parent.id,
@@ -489,7 +489,7 @@ export async function handleAdminCallback(ctx) {
 
   // ==================== NEW FILE ADD & DELETE FLOW ====================
   if (data === 'admin:file_add_start') {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     const buttons = await firestoreService.getButtons();
     const mainButtons = buttons.filter(b => !b.url || !b.url.startsWith('parent:'));
 
@@ -900,7 +900,7 @@ export async function handleAdminCallback(ctx) {
   }
 
   if (data === 'admin:btn_add') {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCallbackQuery().catch(() => {});
     adminSessionState.set(userId, { state: 'AWAITING_BUTTON_NAME_ONLY' });
     return safeReply(
       ctx,
