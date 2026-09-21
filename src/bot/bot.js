@@ -46,12 +46,9 @@ export function initBot() {
     }
   });
 
-  // Set Telegram Native Command Menu & Chat Menu Button
+  // Set Telegram Native Command Menu & Chat Menu Button (3 lines button: ONLY /start)
   bot.api.setMyCommands([
-    { command: 'start', description: '🚀 sᴛᴀʀᴛ / ᴍᴇɴᴜ' },
-    { command: 'restart', description: '🔄 ʀᴇsᴛᴀʀᴛ' },
-    { command: 'menu', description: '🎒 ɢᴀᴅɢᴇᴛ ᴍᴇɴᴜ' },
-    { command: 'admin', description: '🛡️ ᴏᴡɴᴇʀ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ' }
+    { command: 'start', description: '🚀 sᴛᴀʀᴛ' }
   ]).catch(err => console.warn('Could not register bot commands:', err.message));
 
   bot.api.setChatMenuButton({

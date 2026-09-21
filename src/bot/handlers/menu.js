@@ -40,7 +40,7 @@ export async function getDoraemonBottomKeyboard(userId) {
     kb.text('🛡️ ᴀᴅᴍɪɴ ᴘᴀɴᴇʟ');
   }
 
-  return kb.resized().persistent();
+  return kb.resized().placeholder('⚡ sᴇʟᴇᴄᴛ ᴀɴ ᴏᴘᴛɪᴏɴ...');
 }
 
 /**
