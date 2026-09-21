@@ -20,7 +20,29 @@ import sys
 import time
 import sqlite3
 import logging
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
+
+class RenderHealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"Prime Doraemon Bot is running 24/7!")
+    def log_message(self, format, *args):
+        pass  # Suppress access logs
+
+def start_health_server():
+    port = int(os.getenv("PORT", 10000))
+    try:
+        server = HTTPServer(("0.0.0.0", port), RenderHealthCheckHandler)
+        logging.info(f"🌐 Health server listening on port {port} for Render / Cloud")
+        server.serve_forever()
+    except Exception as e:
+        logging.warning(f"Could not start health server: {e}")
+
+threading.Thread(target=start_health_server, daemon=True).start()
 
 try:
     import telebot
