@@ -39,9 +39,11 @@ export async function openAdminPanel(ctx) {
 
   const keyboard = new InlineKeyboard()
     .text('🔘 ᴅʏɴᴀᴍɪᴄ ʙᴜᴛᴛᴏɴs', 'admin:buttons')
-    .text('📢 ʀᴇǫᴜɪʀᴇᴅ ᴄʜᴀɴɴᴇʟs', 'admin:channels').row()
-    .text('📝 ᴇᴅɪᴛ ᴍᴇssᴀɢᴇs', 'admin:messages')
-    .text('📁 ғɪʟᴇs & ᴠɪᴅᴇᴏs', 'admin:files').row()
+    .text('📱 ᴀᴅᴅ ᴀᴘᴘ', 'admin:app_add_start').row()
+    .text('📁 ғɪʟᴇs & ᴠɪᴅᴇᴏs', 'admin:files')
+    .text('➕ ᴀᴅᴅ ғɪʟᴇ', 'admin:file_add_start').row()
+    .text('📢 ʀᴇǫᴜɪʀᴇᴅ ᴄʜᴀɴɴᴇʟs', 'admin:channels')
+    .text('📝 ᴇᴅɪᴛ ᴍᴇssᴀɢᴇs', 'admin:messages').row()
     .text('⚙️ ʙᴏᴛ sᴇᴛᴛɪɴɢs', 'admin:settings')
     .text('📣 ʙʀᴏᴀᴅᴄᴀsᴛ ᴍsɢ', 'admin:broadcast').row()
     .text('🔄 ʀᴇғʀᴇsʜ sᴛᴀᴛs', 'admin:panel')
@@ -131,7 +133,9 @@ export async function showButtonsManager(ctx) {
   });
 
   keyboard
-    .text('➕ ᴀᴅᴅ ɴᴇᴡ ʙᴜᴛᴛᴏɴ', 'admin:btn_add').row()
+    .text('➕ ᴀᴅᴅ ɴᴇᴡ ʙᴜᴛᴛᴏɴ', 'admin:btn_add')
+    .text('📱 ᴀᴅᴅ ᴀᴘᴘ', 'admin:app_add_start').row()
+    .text('📁 ᴀᴅᴅ ғɪʟᴇ ᴛᴏ ᴀᴘᴘ', 'admin:file_add_start').row()
     .text('🔙 ʙᴀᴄᴋ ᴛᴏ ᴅᴀsʜʙᴏᴀʀᴅ', 'admin:panel');
 
   if (ctx.callbackQuery) {
@@ -427,6 +431,62 @@ export async function handleAdminCallback(ctx) {
     );
   }
 
+  // ==================== ADD APP FLOW ====================
+  if (data === 'admin:app_add_start') {
+    await ctx.answerCallbackQuery();
+    const buttons = await firestoreService.getButtons();
+    const mainButtons = buttons.filter(b => !b.url || !b.url.startsWith('parent:'));
+
+    if (mainButtons.length === 0) {
+      return safeReply(
+        ctx,
+        `⚠️ *Pehle koi Main Button banayein!*\n\n` +
+        `App kisi Button (jaise BGMI) ke andar add hoti hai.\n` +
+        `Pehle Admin Panel me *🔘 Dynamic Buttons* me jakar button banayein!`
+      );
+    }
+
+    const keyboard = new InlineKeyboard();
+    mainButtons.forEach(mb => {
+      keyboard.text(`📁 ${toSmallCaps(mb.name)}`, `admin:app_sel_btn:${mb.id}`).row();
+    });
+    keyboard.text('🔙 Cancel', 'admin:buttons');
+
+    const promptText = 
+      `📱 *Step 1: Button Select Karein*\n\n` +
+      `Ye App konse Button ke andar add karni hai?\n` +
+      `Niche se button chuniye (e.g. \`BGMI\`):`;
+
+    if (ctx.callbackQuery) {
+      return safeEditMessageText(ctx, promptText, { reply_markup: keyboard });
+    } else {
+      return safeReply(ctx, promptText, { reply_markup: keyboard });
+    }
+  }
+
+  if (data.startsWith('admin:app_sel_btn:')) {
+    const parentId = data.replace('admin:app_sel_btn:', '');
+    const buttons = await firestoreService.getButtons();
+    const parent = buttons.find(b => b.id === parentId);
+
+    if (!parent) return showButtonsManager(ctx);
+
+    await ctx.answerCallbackQuery();
+    adminSessionState.set(userId, {
+      state: 'AWAITING_APP_NAME',
+      parentId: parent.id,
+      parentName: parent.name
+    });
+
+    return safeReply(
+      ctx,
+      `📁 *Target Button:* *${parent.name}*\n\n` +
+      `📝 *Step 2: App ka Name bhejiye*\n` +
+      `Is App ka naam likhkar bhejiye (e.g. \`BGMI 32-Bit\` ya \`GLTool Pro\` ya \`VIP Injector\`):\n\n` +
+      `_Naam likhkar bhejte hi App "${parent.name}" ke andar save ho jayegi!_ (Cancel ke liye /cancel)`
+    );
+  }
+
   // ==================== NEW FILE ADD & DELETE FLOW ====================
   if (data === 'admin:file_add_start') {
     await ctx.answerCallbackQuery();
@@ -444,14 +504,14 @@ export async function handleAdminCallback(ctx) {
 
     const keyboard = new InlineKeyboard();
     mainButtons.forEach(mb => {
-      keyboard.text(`📁 ${mb.name}`, `admin:file_sel_btn:${mb.id}`).row();
+      keyboard.text(`📁 ${toSmallCaps(mb.name)}`, `admin:file_sel_btn:${mb.id}`).row();
     });
     keyboard.text('🔙 Cancel', 'admin:files');
 
     const promptText = 
       `📂 *Step 1: Button Select Karein*\n\n` +
       `Ye file konse Button ke andar add karni hai?\n` +
-      `Niche se button chuniye:`;
+      `Niche se button chuniye (e.g. \`BGMI\`):`;
 
     if (ctx.callbackQuery) {
       return safeEditMessageText(ctx, promptText, { reply_markup: keyboard });
@@ -468,19 +528,72 @@ export async function handleAdminCallback(ctx) {
     if (!parent) return showFilesManager(ctx);
 
     await ctx.answerCallbackQuery();
+
+    // Check if this button has Apps (sub-buttons)
+    const subApps = buttons.filter(b => b.url === `parent:${parentId}`);
+
+    if (subApps.length > 0) {
+      // Step 2: Show list of Apps inside this Main Button!
+      const keyboard = new InlineKeyboard();
+      subApps.forEach(app => {
+        keyboard.text(`${toSmallCaps(app.name)}`, `admin:file_sel_app:${parentId}:${app.id}`).row();
+      });
+      keyboard.text('➕ ᴄʀᴇᴀᴛᴇ ɴᴇᴡ ᴀᴘᴘ', `admin:app_sel_btn:${parentId}`).row();
+      keyboard.text('🔙 ʙᴀᴄᴋ ᴛᴏ ʙᴜᴛᴛᴏɴs', 'admin:file_add_start');
+
+      const promptText = 
+        `📁 *Selected Button:* *${parent.name}*\n\n` +
+        `📱 *Step 2: App Select Karein*\n` +
+        `Ye file *${parent.name}* ke andar konse App me add karni hai?\n` +
+        `Niche se App chuniye:`;
+
+      return safeReply(ctx, promptText, { reply_markup: keyboard });
+    } else {
+      // No Apps yet inside this button! Offer to create an App or add directly
+      const keyboard = new InlineKeyboard()
+        .text(`📱 Create App in ${toSmallCaps(parent.name)}`, `admin:app_sel_btn:${parentId}`).row()
+        .text(`📄 Add File Directly to ${toSmallCaps(parent.name)}`, `admin:file_sel_app:${parentId}:${parentId}`).row()
+        .text('🔙 Cancel', 'admin:files');
+
+      const promptText = 
+        `📁 *Selected Button:* *${parent.name}*\n\n` +
+        `⚠️ *Is button me abhi koi App nahi hai!*\n` +
+        `Aap pehle App banana chahte hain ya direct file add karni hai?`;
+
+      return safeReply(ctx, promptText, { reply_markup: keyboard });
+    }
+  }
+
+  if (data.startsWith('admin:file_sel_app:')) {
+    const parts = data.replace('admin:file_sel_app:', '').split(':');
+    const [parentId, appId] = parts;
+    await ctx.answerCallbackQuery();
+
+    const buttons = await firestoreService.getButtons();
+    const parent = buttons.find(b => b.id === parentId);
+    const app = buttons.find(b => b.id === appId);
+
+    if (!app) return showFilesManager(ctx);
+
+    const appDisplayName = app.name.replace(/^📱\s*/, '');
+    const parentDisplayName = parent ? parent.name : '';
+
     adminSessionState.set(userId, {
       state: 'AWAITING_FILE_ITEM_NAME',
-      parentId: parent.id,
-      parentName: parent.name
+      parentId: parentId,
+      parentName: parentDisplayName,
+      targetAppId: appId,
+      targetAppName: appDisplayName
     });
 
     return safeReply(
       ctx,
-      `📁 *Target Button:* *${parent.name}*\n\n` +
-      `📝 *Step 2: File ka Display Name bhejiye*\n` +
-      `User ko button dabane par jo naam dikhna chahiye wo likhkar bhejiye:\n` +
-      `(e.g. \`BGMI 3.5 64-Bit\` ya \`VIP Injector v2\` ya \`Tutorial Video\`)\n\n` +
-      `_Naam likhkar send karein, ya /cancel bhejein._`
+      `📁 *Button:* *${parentDisplayName}*\n` +
+      `📱 *App:* *${appDisplayName}*\n\n` +
+      `📝 *Step 3: File ka Display Name bhejiye*\n` +
+      `User ko App ke andar jo naam dikhna chahiye wo likhkar bhejiye:\n` +
+      `(e.g. \`OBB 64-Bit File\` ya \`VIP Config\` ya \`Tutorial Video\`)\n\n` +
+      `_Naam likhkar send karein, ya /skip bhejein original file name ke liye._`
     );
   }
 

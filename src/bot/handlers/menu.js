@@ -204,6 +204,42 @@ export async function handleSubButtonClick(ctx) {
   }
   backKeyboard.text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
 
+  // 1. Check if this sub-button itself has nested child buttons/files (e.g. an App with files)
+  const childButtons = firestoreService.getSubButtons 
+    ? await firestoreService.getSubButtons(subBtn.id)
+    : (await firestoreService.getButtons()).filter(b => b.enabled !== false && b.url === `parent:${subBtn.id}`);
+
+  if (childButtons.length > 0) {
+    const keyboard = new InlineKeyboard();
+    childButtons.forEach(child => {
+      keyboard.text(toSmallCaps(child.name), `subbtn:${child.id}`).row();
+    });
+    if (parentBtn) {
+      keyboard.text(`🔙 ʙᴀᴄᴋ ᴛᴏ ${toSmallCaps(parentBtn.name)}`, `parent_view:${parentId}`).row();
+    }
+    keyboard.text('🏠 ᴍᴀɪɴ ᴍᴇɴᴜ', 'flow:menu');
+
+    const promptText = formatMessage(
+      subBtn.message || `📱 *${toSmallCaps(subBtn.name)}*\n\n_ᴘʟᴇᴀsᴇ sᴇʟᴇᴄᴛ ᴀ ғɪʟᴇ/ᴏᴘᴛɪᴏɴ ʙᴇʟᴏᴡ:_`,
+      ctx.from
+    );
+
+    return safeReply(ctx, promptText, {
+      reply_markup: keyboard
+    });
+  }
+
+  // If this is an App button with no files added yet
+  if (subBtn.name.startsWith('📱') && childButtons.length === 0) {
+    const promptText = formatMessage(
+      `📱 *${toSmallCaps(subBtn.name)}*\n\n⚠️ *Is App me abhi tak koi files upload nahi ki gayi hain.*`,
+      ctx.from
+    );
+    return safeReply(ctx, promptText, {
+      reply_markup: backKeyboard
+    });
+  }
+
   if (subBtn.type === 'FILE') {
     if (!subBtn.telegramFileId || subBtn.telegramFileId.includes('SAMPLE')) {
       const msg = `📦 *${subBtn.name}*\n\n${formatMessage(subBtn.message, ctx.from) || ''}\n\n⚠️ *File/Video abhi upload nahi hui hai.*`;
@@ -268,7 +304,7 @@ export async function handleSubButtonClick(ctx) {
 }
 
 /**
- * Handles navigating back to a parent sub-menu
+ * Handles navigating back to a parent sub-menu (supports multi-level hierarchy)
  */
 export async function handleParentView(ctx) {
   const data = ctx.callbackQuery?.data;
@@ -282,6 +318,12 @@ export async function handleParentView(ctx) {
 
   if (!parentBtn) {
     return showMainMenu(ctx);
+  }
+
+  // If parentBtn itself is a sub-button (e.g. an App under a Main Button)
+  if (parentBtn.url && parentBtn.url.startsWith('parent:')) {
+    ctx.callbackQuery.data = `subbtn:${parentId}`;
+    return handleSubButtonClick(ctx);
   }
 
   return handleButtonExecution(ctx, parentBtn);

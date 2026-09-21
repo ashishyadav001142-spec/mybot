@@ -86,29 +86,31 @@ export async function handleMediaUpload(ctx) {
     // Check if owner was in "Add File to Button" session:
     const session = adminSessionState.get(userId);
     if (session && session.state === 'AWAITING_FILE_MEDIA_UPLOAD') {
-      const { parentId, parentName, itemName } = session;
+      const { parentId, parentName, targetAppId, targetAppName, itemName } = session;
       adminSessionState.delete(userId);
 
+      const targetId = targetAppId || parentId;
+      const targetLabel = targetAppName || parentName;
       const finalName = toSmallCaps(itemName || fileName);
 
-      // Save file record
+      // Save file record in Supabase
       const fileRecord = await firestoreService.addFile({
         name: finalName,
         telegramFileId: fileId,
         fileSize: fileSize,
         mimeType: mimeType,
-        description: `Attached under ${parentName}`,
+        description: `Attached under ${targetLabel}`,
         storageUrl: storageUrl || ''
       });
 
-      // Add sub-button under parentId
-      const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
+      // Add sub-button under targetId (App or Button)
+      const existingSub = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(targetId) : [];
       await firestoreService.addButton({
         name: `📄 ${finalName}`,
         type: 'FILE',
-        url: `parent:${parentId}`,
+        url: `parent:${targetId}`,
         telegramFileId: fileId,
-        message: `📦 *${finalName}*\n\n🎒 *Category:* ${parentName}\n⚡ *File ready to install/download!*`,
+        message: `📦 *${finalName}*\n\n🎒 *App:* ${targetLabel}\n⚡ *File ready to install/download!*`,
         position: existingSub.length + 1,
         enabled: true
       });
@@ -117,17 +119,18 @@ export async function handleMediaUpload(ctx) {
 
       const successKb = new InlineKeyboard()
         .text('➕ Add Another File', 'admin:file_add_start').row()
-        .text(`📂 View "${parentName}"`, `admin:btn_view:${parentId}`).row()
+        .text(`📂 View "${targetLabel}"`, `admin:btn_view:${targetId}`).row()
         .text('📁 View All Files', 'admin:files');
 
       await ctx.api.editMessageText(
         ctx.chat.id,
         statusMsg.message_id,
         `🎉 *File Successfully Added!*\n\n` +
-        `• *Button (Category):* *${parentName}*\n` +
-        `• *Display Name:* *${finalName}*\n` +
+        `• *Category / Button:* *${parentName}*\n` +
+        (targetAppName ? `• *Target App:* *${targetAppName}*\n` : '') +
+        `• *File Display Name:* *${finalName}*\n` +
         `• *Type:* \`${mediaLabel}\` (${sizeMb})\n\n` +
-        `👉 *Ab jab koi user "${parentName}" button dabayega, to use "${finalName}" dikhega aur click karte hi yeh file mil jayegi!*`,
+        `👉 *Ab jab koi user "${targetLabel}" kholega, to use "${finalName}" dikhega aur click karte hi yeh file mil jayegi!*`,
         {
           reply_markup: successKb,
           parse_mode: 'Markdown'
@@ -382,18 +385,53 @@ export async function handleAdminTextSession(ctx) {
     return showButtonsManager(ctx);
   }
 
-  // 9. Handle File Display Name in Step-by-Step Add File flow
-  if (session.state === 'AWAITING_FILE_ITEM_NAME') {
-    session.itemName = toSmallCaps(text.trim());
-    session.state = 'AWAITING_FILE_MEDIA_UPLOAD';
-    adminSessionState.set(userId, session);
+  // Handle Add App (Nested under a button like BGMI)
+  if (session.state === 'AWAITING_APP_NAME') {
+    const { parentId, parentName } = session;
+    adminSessionState.delete(userId);
+
+    const appName = toSmallCaps(text.trim());
+    const existingSubs = firestoreService.getAllSubButtons ? await firestoreService.getAllSubButtons(parentId) : [];
+
+    const newApp = await firestoreService.addButton({
+      name: `📱 ${appName}`,
+      type: 'TEXT',
+      url: `parent:${parentId}`,
+      message: `📱 *${appName}*\n\n🎒 Niche se file ya option select karein:`,
+      position: existingSubs.length + 1,
+      enabled: true
+    });
+
+    const successKb = new InlineKeyboard()
+      .text('➕ Add File to This App', `admin:file_sel_app:${parentId}:${newApp.id}`).row()
+      .text('📱 Add Another App', 'admin:app_add_start').row()
+      .text('🔘 View All Buttons', 'admin:buttons');
 
     await safeReply(
       ctx,
-      `✅ *File Display Name:* *${session.itemName}*\n` +
-      `📁 *Target Button:* *${session.parentName}*\n\n` +
-      `📤 *Step 3:* Ab apni File, APK, Video, Audio ya Document is chat me send ya forward karein!\n\n` +
-      `_Bot automatically use "${session.parentName}" button ke andar jod dega._`
+      `🎉 *App Successfully Added!*\n\n` +
+      `• *Button:* *${parentName}*\n` +
+      `• *App Name:* *${appName}*\n\n` +
+      `Ab is App ke andar files upload karne ke liye niche *➕ Add File to This App* dabayein ya files repository me jayein!`,
+      { reply_markup: successKb }
+    );
+    return true;
+  }
+
+  // 9. Handle File Display Name in Step-by-Step Add File flow
+  if (session.state === 'AWAITING_FILE_ITEM_NAME') {
+    session.itemName = text === '/skip' ? '' : toSmallCaps(text.trim());
+    session.state = 'AWAITING_FILE_MEDIA_UPLOAD';
+    adminSessionState.set(userId, session);
+
+    const targetLabel = session.targetAppName || session.parentName;
+
+    await safeReply(
+      ctx,
+      (session.itemName ? `✅ *File Display Name:* *${session.itemName}*\n` : '') +
+      `📱 *Target App:* *${targetLabel}*\n\n` +
+      `📤 *Step 4:* Ab apni File, APK, Video, Audio ya Document is chat me send ya forward karein!\n\n` +
+      `_Bot automatically use "${targetLabel}" ke andar jod dega._`
     );
     return true;
   }
